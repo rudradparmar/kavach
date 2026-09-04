@@ -112,8 +112,13 @@ recording stops depending on the handset that made it.
   switched off works out what it still owes.
 - `DELETE /session/:id` is immediate and takes the audio (PRD R4). Retention is
   bounded at 30 days, per-session size at 200MB.
-- No auth. Anyone who can reach the port can read or delete any session id they
-  can guess — survivable on a dev network and nowhere else.
+- Authenticated like the other two, via `shared/auth.ts`. `requireSession`
+  guards every `/session/:id/*` route, so a capability minted for one
+  encounter returns 403 on another. It verifies the HMAC without ever calling
+  the engine — no lookup, no round trip, no dependency.
+- What it still lacks is **transport** security. A bearer token over plain HTTP
+  is readable by anyone on the path, so this is a trusted-LAN service until TLS
+  lands in front of it.
 
 ---
 
@@ -304,8 +309,32 @@ One is a live design tension worth resolving in code:
 
 ## Suggested next task
 
-Every PRD requirement now has something built against it. What is left either
-needs a key, a native module, or an answer from a person.
+Most PRD requirements now have something built against them. **Four do not,
+and were previously not listed as missing anywhere in this file:**
+
+- **R9 — escalation guidance.** Which authority hears the complaint, the
+  deadline, the required contents, a draft the user edits. Nothing exists.
+  This is content work as much as engineering: it needs the same advocate
+  sign-off pipeline as R2.
+- **R11 — officer detail capture.** Guided prompts for name, buckle number,
+  station, vehicle number. Nothing exists. The corpus repeatedly tells the user
+  this is the fact most often missing later while giving them nowhere to put
+  it, and its absence is the direct cause of R8's missing officer section.
+- **R12 — language expansion** (Tamil, Telugu, Bengali, Marathi, Kannada).
+  Nothing exists. The method is recorded below; cue counts must stay balanced.
+- **R13 — post-incident debrief.** Structured questions within 24 hours,
+  appended to the packet. Nothing exists. It is also the collection path the
+  "did this match what happened?" metric needs.
+
+Three sub-clauses of requirements marked done are also absent: R8's **PDF
+output**, **location trail** and **media bundle** (three of its six named
+contents), R4's **periodic location** — `evidence-service` already accepts
+`lat`/`lon` on chunk upload and the client simply never sends them — and
+R6's rule that provisions unreviewed for six months are **flagged in-product**,
+where `reviewDueAt` is a field in every corpus file that nothing reads.
+
+The rest of what is left needs a key, a native module, or an answer from a
+person.
 
 1. **TLS in front of the three services.** Auth now exists, and over plain HTTP
    it is decorative — the token is readable by anyone on the path. This is the

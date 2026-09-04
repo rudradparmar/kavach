@@ -1,6 +1,10 @@
 # Kavach engine — architecture decisions (v0.1.0)
 
-Status: built, 21/21 tests passing, corpus UNVERIFIED.
+Status: built, 73/73 engine tests passing, corpus UNVERIFIED.
+
+Last reconciled against the code on 4 September 2026. The engine has since
+gained on-disk session persistence and authentication; the "Deliberately
+absent" list below has been corrected to match.
 
 ## The governing rule
 
@@ -70,8 +74,18 @@ de-escalating action. This wording needs counsel review specifically.
 ## Deliberately absent
 
 Audio capture, chunked upload, trusted-contact alerts, lock-screen widget,
-offline caching, persistence, auth. Those belong to the Expo app and the
-evidence service.
+offline caching. Those belong to the Expo app and the evidence service.
+
+**Speech, specifically, stays out.** A `/transcribe` route on the engine would
+have been less work, which is the reason not to add one. An advocate reading
+`kavach-engine/` should find only corpus, deterministic rules and the guard.
+A speech model beside that code would make the boundary a comment rather than
+a fact about the repository.
+
+Persistence and auth **were** on this list and are now built into the engine
+(`src/server/store.ts`, `shared/auth.ts`). Sessions are written to disk so a
+restart does not take the lawyer packet with it, and authorisation attaches to
+the session rather than a person, because PRD R1 forbids a login.
 
 ## Gate before anything reaches a person
 
