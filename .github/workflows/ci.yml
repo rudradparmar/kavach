@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The corpus is unverified placeholder law. These checks prove the machinery
+# that keeps it honest still works; they prove nothing about the law itself.
+env:
+  # Both must be set, and set identically across all three services.
+  # shared/auth.ts requires the pair -- set one and it falls through to
+  # generating a fresh pair per process, and every token the engine mints
+  # comes back bad-signature from the other two.
+  KAVACH_API_KEY: ci-instance-key-not-a-real-secret
+  KAVACH_SESSION_SECRET: ci-session-secret-not-a-real-secret
+
+jobs:
+  checks:
+    name: corpus, engine, services, client logic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: |
+          for d in kavach-engine stt-service evidence-service app; do
+            (cd "$d" && npm ci)
+          done
+
+      # Structural validator. Exits non-zero on a corpus error, warns on
+      # every unverified file -- the warnings are expected and must stay.
+      - name: Validate corpus
+        run: cd kavach-engine && npm run validate
+
+      - name: Engine tests
+        run: cd kavach-engine && npm test
+
+      - name: Evidence-service tests
+        run: cd evidence-service && npm test
+
+      - name: STT-service tests
+        run: cd stt-service && npm test
+
+      # The client re-exports engine types through @engine/*, so a change to
+      # GuidanceUpdate breaks this rather than silently rendering stale guidance.
+      - name: Client typecheck
+        run: cd app && npm run typecheck
+
+      # Pure logic, no server. Includes the static-option parity pin that
+      # holds app/src/offline/staticOptions.ts against the engine's real
+      # ranking -- rank and safest in the corpus are inputs, not answers.
+      - name: Client unit checks
+        run: cd app && npm run units
+
+  integration:
+    name: live services end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: |
+          for d in kavach-engine stt-service evidence-service app; do
+            (cd "$d" && npm ci)
+          done
+
+      - name: Boot the three services
+        run: |
+          (cd kavach-engine    && npm run dev &) 
+          (cd stt-service      && npm run dev &)
+          (cd evidence-service && npm run dev &)
+          for port in 8787 8788 8789; do
+            for i in $(seq 1 40); do
+              if curl -sf "http://127.0.0.1:$port/health" >/dev/null; then
+                echo "  :$port up"; break
+              fi
+              if [ "$i" = 40 ]; then echo "  :$port never came up"; exit 1; fi
+              sleep 0.5
+            done
+          done
+
+      # These drive the app's own client modules, not a reimplementation of
+      # them, so a break in either boundary shows up without a device.
+      - name: Guidance loop and packet
+        run: cd app && npm run smoke
+
+      - name: Perception loop (audio -> transcript -> guidance)
+        run: cd app && npm run pipeline
+
+      - name: Custody chain (upload -> hash -> playback -> delete)
+        run: cd app && npm run evidence
+
+      # A token for one encounter must return 403 on another.
+      - name: Auth containment across all three services
+        run: cd app && npm run auth
