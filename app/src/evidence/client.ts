@@ -6,6 +6,7 @@
  */
 
 import { authHeaders } from "../api/auth";
+import { siblingUrl } from "../api/url";
 
 const EVIDENCE_PORT = 8789;
 const TIMEOUT_MS = { chunk: 25_000, meta: 8_000 } as const;
@@ -46,14 +47,9 @@ export class EvidenceError extends Error {
   }
 }
 
-/** Same host as the engine, different port. */
+/** Same deployment as the engine: a sibling port in dev, a sibling path behind a proxy. */
 export function defaultEvidenceUrl(engineBaseUrl: string): string {
-  try {
-    const u = new URL(engineBaseUrl);
-    return `${u.protocol}//${u.hostname}:${EVIDENCE_PORT}`;
-  } catch {
-    return `http://localhost:${EVIDENCE_PORT}`;
-  }
+  return siblingUrl(engineBaseUrl, { port: EVIDENCE_PORT, segment: "evidence" });
 }
 
 async function req(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {

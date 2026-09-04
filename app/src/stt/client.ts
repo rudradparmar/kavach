@@ -1,4 +1,5 @@
 import { authHeaders } from "../api/auth";
+import { siblingUrl } from "../api/url";
 import type { Recording, SttHealth, Transcript } from "./types";
 
 /**
@@ -23,14 +24,9 @@ export class SttError extends Error {
   }
 }
 
-/** Same host as the engine, different port. */
+/** Same deployment as the engine: a sibling port in dev, a sibling path behind a proxy. */
 export function defaultSttUrl(engineBaseUrl: string): string {
-  try {
-    const u = new URL(engineBaseUrl);
-    return `${u.protocol}//${u.hostname}:${STT_PORT}`;
-  } catch {
-    return `http://localhost:${STT_PORT}`;
-  }
+  return siblingUrl(engineBaseUrl, { port: STT_PORT, segment: "stt" });
 }
 
 export async function getSttHealth(baseUrl: string): Promise<SttHealth> {

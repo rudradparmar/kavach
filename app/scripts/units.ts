@@ -13,7 +13,7 @@
 import { loadCorpus } from "../../kavach-engine/src/corpus/loader.js";
 import { initialFacts } from "../../kavach-engine/src/engine/facts.js";
 import { buildOptions } from "../../kavach-engine/src/engine/options.js";
-import { normalise } from "../src/api/url";
+import { normalise, siblingUrl } from "../src/api/url";
 import { composeAlert, isDialable, mapsUrl, normalisePhone } from "../src/contacts/message";
 import { staticOptions } from "../src/offline/staticOptions";
 import { matchAvailable, primarySubtag, unavailableReason, type SpeechLang } from "../src/tts/languages";
@@ -349,6 +349,50 @@ t("trailing slashes are stripped so paths concatenate", () => {
   eq(normalise("http://x:8787/"), "http://x:8787", "one slash");
   eq(normalise("  http://x:8787///  "), "http://x:8787", "several, plus whitespace");
   eq(normalise("http://x:8787"), "http://x:8787", "already clean");
+});
+
+const STT = { port: 8788, segment: "stt" };
+const EVIDENCE = { port: 8789, segment: "evidence" };
+
+t("a port-mounted engine puts its siblings on sibling ports", () => {
+  // Development: three processes, one host, a port each.
+  eq(siblingUrl("http://192.168.1.5:8787", STT), "http://192.168.1.5:8788", "stt");
+  eq(siblingUrl("http://192.168.1.5:8787", EVIDENCE), "http://192.168.1.5:8789", "evidence");
+  eq(siblingUrl("http://localhost:8787/", STT), "http://localhost:8788", "trailing slash");
+});
+
+t("a path-mounted engine puts its siblings on sibling paths", () => {
+  // Deployment: one hostname, one certificate, a proxy routing by prefix.
+  // This is the shape the old port-rebuilding version could not express, and
+  // could not express it silently -- it returned a :8788 URL on a :443 host.
+  eq(siblingUrl("https://api.example.com/engine", STT), "https://api.example.com/stt", "stt");
+  eq(
+    siblingUrl("https://api.example.com/engine", EVIDENCE),
+    "https://api.example.com/evidence",
+    "evidence",
+  );
+  eq(
+    siblingUrl("https://api.example.com/kavach/engine", STT),
+    "https://api.example.com/kavach/stt",
+    "mounted below a prefix",
+  );
+});
+
+t("a path-mounted sibling never carries a port, whatever the engine had", () => {
+  // The bug this whole function exists to prevent: TLS terminates on 443,
+  // so any port in a derived URL means the request goes nowhere.
+  for (const url of [
+    siblingUrl("https://api.example.com/engine", STT),
+    siblingUrl("https://api.example.com/engine", EVIDENCE),
+  ]) {
+    assert(!/:\d+/.test(new URL(url).host), `derived a port on a TLS host: ${url}`);
+  }
+});
+
+t("garbage in gives a usable localhost address, not a throw", () => {
+  // A session must never fail to start because a stored address is malformed.
+  eq(siblingUrl("not a url", STT), "http://localhost:8788", "stt");
+  eq(siblingUrl("", EVIDENCE), "http://localhost:8789", "evidence");
 });
 
 /* ------------------------------------------------------------------ */
