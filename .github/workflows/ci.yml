@@ -100,3 +100,56 @@ jobs:
       # A token for one encounter must return 403 on another.
       - name: Auth containment across all three services
         run: cd app && npm run auth
+
+  deployed-shape:
+    name: path-mounted, the way it ships
+    runs-on: ubuntu-latest
+    # Development runs port-mounted and never exercises path routing, so this
+    # is the shape most likely to break unnoticed. It is also the shape that
+    # was silently broken until siblingUrl() landed: the client rebuilt
+    # protocol + hostname + a hardcoded port, so every TLS deployment was
+    # unreachable and nothing said so.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: |
+          for d in kavach-engine stt-service evidence-service app; do
+            (cd "$d" && npm ci)
+          done
+
+      - name: Boot the three services and the prefix-stripping proxy
+        run: |
+          (cd kavach-engine    && npm start &)
+          (cd stt-service      && npm start &)
+          (cd evidence-service && npm start &)
+          node deploy/local-proxy.mjs &
+          for p in /engine /stt /evidence; do
+            for i in $(seq 1 40); do
+              if curl -sf "http://127.0.0.1:8080$p/health" >/dev/null; then
+                echo "  $p up"; break
+              fi
+              if [ "$i" = 40 ]; then echo "  $p never came up"; exit 1; fi
+              sleep 0.5
+            done
+          done
+
+      # Not one of these URLs carries a port. That is the whole point.
+      - name: Guidance loop and packet
+        run: cd app && npm run smoke -- http://localhost:8080/engine
+
+      - name: Custody chain
+        run: cd app && npm run evidence -- http://localhost:8080/evidence
+
+      - name: Perception loop
+        run: cd app && npm run pipeline -- http://localhost:8080/engine http://localhost:8080/stt
+
+      - name: Auth containment behind one origin
+        run: |
+          cd app && npm run auth -- \
+            http://localhost:8080/engine \
+            http://localhost:8080/stt \
+            http://localhost:8080/evidence

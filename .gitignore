@@ -27,3 +27,6 @@ evidence-service/evidence/
 # OS
 .DS_Store
 Thumbs.db
+
+# Deploy secrets
+deploy/.env

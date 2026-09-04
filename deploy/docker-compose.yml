@@ -1,0 +1,101 @@
+# Kavach, deployed. Run from this directory: docker compose up -d --build
+#
+# Everything here assumes a host with a real, persistent filesystem. Both
+# stores need one and neither says so when it is missing: the engine restores
+# "0 sessions" and evidence-service returns a clean 404 for audio that used to
+# exist. A platform with an ephemeral disk defeats the service whose entire
+# purpose is that a recording outlives the handset that made it.
+
+name: kavach
+
+x-auth: &auth
+  # Both, identically, on all three. shared/auth.ts requires the pair -- set
+  # only one and each process quietly generates its own, after which every
+  # token the engine mints comes back bad-signature from the other two.
+  KAVACH_API_KEY: ${KAVACH_API_KEY:?set it in deploy/.env}
+  KAVACH_SESSION_SECRET: ${KAVACH_SESSION_SECRET:?set it in deploy/.env}
+  KAVACH_SESSION_TTL_HOURS: ${KAVACH_SESSION_TTL_HOURS:-12}
+
+services:
+  engine:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: kavach-engine
+    environment:
+      <<: *auth
+      PORT: 8787
+      # mock is the deterministic keyword classifier and needs no key. It is
+      # the offline baseline any model has to beat, and a perfectly reasonable
+      # thing to deploy.
+      KAVACH_LLM_PROVIDER: ${KAVACH_LLM_PROVIDER:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KAVACH_SESSION_DIR: /data/sessions
+      KAVACH_SESSION_RETENTION_DAYS: ${KAVACH_SESSION_RETENTION_DAYS:-7}
+    volumes:
+      - sessions:/data/sessions
+    expose: ["8787"]
+    restart: unless-stopped
+
+  stt:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: stt-service
+    environment:
+      <<: *auth
+      PORT: 8788
+      # Point at Groq's free tier and this needs no code change:
+      #   KAVACH_STT_PROVIDER=openai-compatible
+      #   KAVACH_STT_URL=https://api.groq.com/openai/v1/audio/transcriptions
+      #   KAVACH_STT_MODEL=whisper-large-v3-turbo
+      # Left on mock by default, which cannot hear and says so in the
+      # transcript text itself.
+      KAVACH_STT_PROVIDER: ${KAVACH_STT_PROVIDER:-mock}
+      KAVACH_STT_URL: ${KAVACH_STT_URL:-}
+      KAVACH_STT_KEY: ${KAVACH_STT_KEY:-}
+      KAVACH_STT_MODEL: ${KAVACH_STT_MODEL:-whisper-1}
+    expose: ["8788"]
+    restart: unless-stopped
+
+  evidence:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: evidence-service
+    environment:
+      <<: *auth
+      PORT: 8789
+      KAVACH_EVIDENCE_DIR: /data/evidence
+      KAVACH_EVIDENCE_RETENTION_DAYS: ${KAVACH_EVIDENCE_RETENTION_DAYS:-30}
+      KAVACH_EVIDENCE_MAX_SESSION_MB: ${KAVACH_EVIDENCE_MAX_SESSION_MB:-200}
+    volumes:
+      - evidence:/data/evidence
+    expose: ["8789"]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    expose: ["80"]
+    depends_on: [engine, stt, evidence]
+    restart: unless-stopped
+
+  # Outbound-only connection to Cloudflare's edge. No inbound port is opened
+  # on the VM, so the Oracle security list stays closed and there is nothing
+  # to port-forward. TLS terminates at the edge with a real certificate.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?set it in deploy/.env}
+    depends_on: [caddy]
+    restart: unless-stopped
+
+volumes:
+  # Named, so `docker compose down` does not take the encounters with it.
+  # `down -v` does, which is the deliberate way to wipe them.
+  sessions:
+  evidence:

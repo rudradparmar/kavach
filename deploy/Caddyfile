@@ -1,0 +1,43 @@
+# One origin, three services, routed by path prefix.
+#
+# This is the shape app/src/api/url.ts calls "path-mounted". The client derives
+# its sibling addresses from the engine's URL, so pointing it at
+# https://api.<domain>/engine is enough to reach all three -- no per-service
+# hostname, no port, one TLS certificate.
+#
+# Caddy speaks plain HTTP here on purpose. TLS terminates at Cloudflare's edge
+# and cloudflared carries the request the rest of the way over its own
+# outbound tunnel, so there is no certificate to manage and no inbound port to
+# open on the VM.
+
+{
+	admin off
+	# Cloudflare is the only thing that ever talks to this.
+	auto_https off
+}
+
+:80 {
+	# handle_path strips the prefix before proxying, so the services stay
+	# unaware they are mounted anywhere. /engine/session -> /session.
+	handle_path /engine/* {
+		reverse_proxy engine:8787
+	}
+
+	handle_path /stt/* {
+		reverse_proxy stt:8788
+	}
+
+	handle_path /evidence/* {
+		reverse_proxy evidence:8789
+	}
+
+	# Nothing else is served. No directory listing, no default site.
+	handle {
+		respond 404
+	}
+
+	log {
+		# Request paths carry session ids. Do not log them.
+		output discard
+	}
+}

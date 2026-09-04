@@ -4,8 +4,11 @@
   "private": true,
   "description": "Kavach rights-in-the-moment engine. Headless. Corpus-grounded. NOT LEGAL ADVICE.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "start": "tsx src/server/index.ts",
     "build": "tsc",
     "dev": "tsx src/server/index.ts",
     "replay": "tsx src/cli/replay.ts",
@@ -13,11 +16,11 @@
     "test": "tsx test/run.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1"
+    "@anthropic-ai/sdk": "^0.32.1",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
