@@ -1,0 +1,73 @@
+{
+  "id": "traffic-no-helmet",
+  "title": "Traffic stop — no helmet",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "helmet",
+    "headgear",
+    "bina helmet",
+    "सिर",
+    "stopped for helmet",
+    "हेलमेट",
+    "बिना हेलमेट",
+    "हेलमेट नहीं"
+  ],
+  "provisionIds": [
+    "MVA-129",
+    "MVA-194D",
+    "MVA-200"
+  ],
+  "officerCan": [
+    "Stop the vehicle and point out that headgear was not worn.",
+    "Compound the offence if they are an officer notified for that purpose, at the prescribed amount.",
+    "Issue a challan."
+  ],
+  "officerCannot": [
+    "Demand an amount other than the prescribed penalty.",
+    "Take cash without issuing a receipt or challan.",
+    "Take the vehicle keys as a way of forcing payment."
+  ],
+  "quotableLine": {
+    "en": "I will pay the correct penalty. Please issue the challan so I have a receipt.",
+    "hi": "मैं सही जुर्माना भरने के लिए तैयार हूँ। कृपया चालान दे दीजिए ताकि मेरे पास रसीद रहे।"
+  },
+  "doNotSay": [
+    "Do you know who I am?",
+    "This is not your job.",
+    "Anything about who you know or who you will call."
+  ],
+  "documentNow": "The officer's name and buckle number, and the amount being asked for.",
+  "options": [
+    {
+      "id": "ask-challan",
+      "label": "Ask for a written challan instead of paying cash.",
+      "rationale": "A challan creates a record; a cash payment with no receipt does not.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": "May take a few more minutes at the roadside."
+    },
+    {
+      "id": "ask-authority",
+      "label": "Politely ask whether the officer is authorised to compound this offence.",
+      "rationale": "Only notified officers may compound under s.200.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": "Ask once, calmly. Repeating it reads as a challenge."
+    },
+    {
+      "id": "pay-and-record",
+      "label": "Pay the amount asked and record everything for a later complaint.",
+      "rationale": "Ends the encounter fastest and preserves your ability to complain afterwards.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": "You may pay more than the statutory amount."
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

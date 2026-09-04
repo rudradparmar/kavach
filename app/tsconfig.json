@@ -1,0 +1,11 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@engine/*": ["../kavach-engine/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "../kavach-engine/src/types.ts"],
+  "exclude": ["node_modules", "scripts"]
+}

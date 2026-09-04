@@ -1,0 +1,26 @@
+{
+  "id": "universal-fallback",
+  "title": "Situation not confidently identified",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [],
+  "provisionIds": [],
+  "officerCan": [],
+  "officerCannot": [],
+  "quotableLine": {
+    "en": "May I know your name and buckle number, and what this is regarding?",
+    "hi": "क्या मैं आपका नाम और बकल नंबर जान सकता हूँ, और यह किस बारे में है?"
+  },
+  "doNotSay": [
+    "Any legal section you are not certain of.",
+    "Anything refusing a lawful instruction."
+  ],
+  "documentNow": "The officer's name and buckle number, the location, and the time.",
+  "options": [
+    { "id": "fb-identify", "label": "Ask for the officer's name and buckle number.", "rationale": "Always available, never confrontational, and it is the fact most often missing later.", "rank": 1, "safest": true, "tradeoff": null },
+    { "id": "fb-comply", "label": "Comply with lawful instructions and keep your hands visible.", "rationale": "Nothing you gain by arguing outweighs what you lose if this escalates.", "rank": 2, "safest": false, "tradeoff": null },
+    { "id": "fb-record", "label": "Keep the session recording and let it upload.", "rationale": "The record is worth more than any argument made at the roadside.", "rank": 3, "safest": false, "tradeoff": null },
+    { "id": "fb-contact", "label": "Send the trusted-contact alert.", "rationale": "Someone knowing where you are costs nothing.", "rank": 4, "safest": false, "tradeoff": null }
+  ],
+  "verification": { "status": "unverified", "advocate": null, "signedOffAt": null, "reviewDueAt": null, "notes": "Universal safe actions. Must be counsel-reviewed for escalation risk before any use." },
+  "_note": "PRD Design Principle 3 — this is what the engine says when it is not confident. It contains no section numbers by design."
+}

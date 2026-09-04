@@ -1,0 +1,15 @@
+{
+  "name": "escalating-traffic-stop-hi",
+  "description": "The canonical escalation in Devanagari, turn for turn with escalating-traffic-stop.json. This is what speech recognition actually returns for a Hindi encounter, and it must reach the same scenarios and the same flags as the romanised transcript. If it falls back, the classifier cues have regressed.",
+  "turns": [
+    { "speaker": "user",    "text": "चेकपोस्ट पर मुझे रोका है, कॉन्स्टेबल इधर आ रहे हैं।" },
+    { "speaker": "officer", "text": "लाइसेंस दिखाओ। कागज़ात निकालो।" },
+    { "speaker": "user",    "text": "सर मेरा लाइसेंस है, लेकिन लाइसेंस घर पर रह गया, डिजिटल कॉपी है मेरे पास।" },
+    { "speaker": "officer", "text": "डिजिटल नहीं चलेगा। चाबी दो।" },
+    { "speaker": "user",    "text": "उन्होंने गाड़ी से मेरी चाबी निकाल ली है।" },
+    { "speaker": "officer", "text": "अब 2000 रुपये दो और निकल जाओ। चालान नहीं बनेगा, नकद दे दो।" },
+    { "speaker": "user",    "text": "वो नकद मांग रहे हैं और कह रहे हैं कि चालान नहीं बनेगा।" },
+    { "speaker": "officer", "text": "नहीं देना है तो थाने चलो। स्टेशन चलो अभी।" },
+    { "speaker": "user",    "text": "वो थाने चलने को कह रहे हैं। उन्होंने गिरफ़्तार नहीं कहा है।" }
+  ]
+}

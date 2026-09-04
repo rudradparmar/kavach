@@ -1,0 +1,74 @@
+{
+  "id": "force-on-protesters",
+  "title": "Force used on peaceful protesters",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "lathi",
+    "beating",
+    "force",
+    "hit",
+    "maar rahe",
+    "water cannon",
+    "teargas",
+    "लाठी",
+    "लाठीचार्ज",
+    "मार रहे",
+    "पीट रहे",
+    "आंसू गैस",
+    "पानी की बौछार",
+    "बल प्रयोग"
+  ],
+  "provisionIds": [
+    "CONST-21",
+    "CONST-19-1-B"
+  ],
+  "officerCan": [
+    "Use force that is necessary and proportionate to a lawful purpose."
+  ],
+  "officerCannot": [
+    "Use force disproportionate to the situation.",
+    "Use force against people who are peaceful and complying."
+  ],
+  "quotableLine": {
+    "en": "We are peaceful and we are complying.",
+    "hi": "हम शांतिपूर्ण हैं और हम पालन कर रहे हैं।"
+  },
+  "doNotSay": [
+    "Anything shouted back.",
+    "Any gesture that can be read as retaliation."
+  ],
+  "documentNow": "Faces, unit or vehicle numbers, the time, and injuries — before anyone is moved.",
+  "options": [
+    {
+      "id": "get-to-safety",
+      "label": "Move out of the immediate area first.",
+      "rationale": "Nothing you document matters more than not being injured.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "document-from-distance",
+      "label": "Continue recording from a distance.",
+      "rationale": "Distance is what separates documenting from obstruction.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "record-injuries",
+      "label": "Record injuries and get medical attention documented.",
+      "rationale": "Medical records made contemporaneously carry far more weight later.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

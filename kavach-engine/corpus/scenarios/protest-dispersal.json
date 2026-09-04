@@ -1,0 +1,77 @@
+{
+  "id": "protest-dispersal",
+  "title": "Peaceful protest — dispersal order",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "dharna",
+    "protest",
+    "disperse",
+    "hato",
+    "144",
+    "order hai",
+    "assembly",
+    "धरना",
+    "प्रदर्शन",
+    "हटो",
+    "हट जाओ",
+    "तितर बितर",
+    "धारा १४४",
+    "आदेश है"
+  ],
+  "provisionIds": [
+    "BNSS-163",
+    "CONST-19-1-A",
+    "CONST-19-1-B"
+  ],
+  "officerCan": [
+    "Enforce a valid order restricting assembly, where one is in force for that place and time.",
+    "Direct a lawful dispersal."
+  ],
+  "officerCannot": [
+    "Assert an order that is not in force, or refuse to identify it.",
+    "Treat peaceful assembly as unlawful in the absence of such an order."
+  ],
+  "quotableLine": {
+    "en": "May I know which order is in force here, and for what area and time? We will comply.",
+    "hi": "क्या मैं जान सकता हूँ कि यहाँ कौन सा आदेश लागू है, किस क्षेत्र और समय के लिए? हम पालन करेंगे।"
+  },
+  "doNotSay": [
+    "This is unconstitutional.",
+    "We're not moving.",
+    "Any refusal of a dispersal direction."
+  ],
+  "documentNow": "Whether an order was identified, and the exact words used to direct dispersal.",
+  "options": [
+    {
+      "id": "comply-and-ask",
+      "label": "Begin moving as directed while asking which order is in force.",
+      "rationale": "Compliance first protects you; the question preserves the legal point.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "record-order-details",
+      "label": "Record the order number, area and time if given.",
+      "rationale": "This is what a lawyer needs to test whether the order applied to you.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "move-to-distance",
+      "label": "Move to a distance and continue documenting.",
+      "rationale": "Keeps the record going without being inside the dispersal.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

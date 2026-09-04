@@ -1,0 +1,76 @@
+{
+  "id": "keys-taken",
+  "title": "Officer takes the keys or blocks the vehicle",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "chaabi",
+    "chabi",
+    "keys",
+    "key nikal",
+    "took my keys",
+    "blocked my bike",
+    "won't let me go",
+    "चाबी",
+    "चाभी",
+    "चाबी दो",
+    "चाबी निकाल",
+    "गाड़ी रोक",
+    "जाने नहीं दे"
+  ],
+  "provisionIds": [
+    "MVA-207",
+    "MVA-206"
+  ],
+  "officerCan": [
+    "Detain the vehicle itself under s.207 in the specific circumstances that section lists — for example where the rider holds no licence at all.",
+    "Impound a driving licence under s.206 in the circumstances that section lists."
+  ],
+  "officerCannot": [
+    "Remove the keys from the ignition as a general power — no provision confers it.",
+    "Use the keys as leverage to force an on-the-spot cash payment.",
+    "Treat a missing physical document as a ground for detaining the vehicle where later production is allowed."
+  ],
+  "quotableLine": {
+    "en": "If the vehicle is being detained, please tell me under which section, and give me the detention paper.",
+    "hi": "अगर गाड़ी ज़ब्त की जा रही है, तो कृपया बताइए किस धारा के तहत, और ज़ब्ती का कागज़ दीजिए।"
+  },
+  "doNotSay": [
+    "Give me my keys back. (as a demand)",
+    "Any attempt to physically take the keys back.",
+    "You have no right to touch my vehicle."
+  ],
+  "documentNow": "The moment the keys were taken, and whether any section or paper was cited.",
+  "options": [
+    {
+      "id": "ask-section",
+      "label": "Calmly ask which section the detention is under.",
+      "rationale": "A lawful detention has a section behind it; taking keys without one does not.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": "Ask once. Do not repeat it as a challenge."
+    },
+    {
+      "id": "ask-paper",
+      "label": "Ask for the detention memo or challan in writing.",
+      "rationale": "Creates the record that makes this reviewable later.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "alert-contact",
+      "label": "Send the trusted-contact alert now.",
+      "rationale": "Key removal often precedes a longer stop.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

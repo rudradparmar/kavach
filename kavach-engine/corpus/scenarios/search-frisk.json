@@ -1,0 +1,80 @@
+{
+  "id": "search-frisk",
+  "title": "Search or frisking",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "talashi",
+    "search",
+    "frisk",
+    "pockets",
+    "bag kholo",
+    "check karna hai",
+    "तलाशी",
+    "जामा तलाशी",
+    "जेब",
+    "बैग खोलो",
+    "चेक करना है"
+  ],
+  "provisionIds": [
+    "BNSS-SEARCH-FEMALE",
+    "BNSS-SEIZURE-MEMO",
+    "CONST-21"
+  ],
+  "officerCan": [
+    "Search where the law authorises it, following the prescribed procedure.",
+    "Seize items, provided the seizure is recorded and a copy of the list is given to you."
+  ],
+  "officerCannot": [
+    "Search a female person other than by a female officer, and otherwise than with strict regard to decency.",
+    "Seize items without recording the seizure and giving you a copy."
+  ],
+  "quotableLine": {
+    "en": "I am not objecting to a lawful search. Please record whatever is taken and give me a copy of the list.",
+    "hi": "मैं वैध तलाशी का विरोध नहीं कर रहा। कृपया जो भी लिया जाए उसे दर्ज कीजिए और मुझे सूची की कॉपी दीजिए।"
+  },
+  "doNotSay": [
+    "You can't touch me.",
+    "Any physical blocking of the search."
+  ],
+  "documentNow": "Who conducted the search, whether a female officer was present, and every item taken.",
+  "options": [
+    {
+      "id": "request-female-officer",
+      "label": "If you are a woman, ask for a female officer before the search begins.",
+      "rationale": "The requirement applies at the start; raising it afterwards is far weaker.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null,
+      "requires": [
+        {
+          "fact": "userIsFemale",
+          "op": "eq",
+          "value": "yes"
+        }
+      ]
+    },
+    {
+      "id": "request-seizure-memo",
+      "label": "Ask for the seizure list and a copy of it.",
+      "rationale": "Without the memo there is no record of what was taken.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "request-witness",
+      "label": "Ask that a bystander witness the search.",
+      "rationale": "Independent witnesses are what make the record hold up.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": "Not always practical."
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

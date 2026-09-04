@@ -1,0 +1,18 @@
+{
+  "$comment": "scripts/ runs on Node under tsx, not in React Native. Expo's base config pins customConditions to react-native, which cannot resolve node: builtins — so this is a separate project rather than a carve-out in the app config.",
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@engine/*": ["../../kavach-engine/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "../src/api/**/*.ts"]
+}

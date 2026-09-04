@@ -1,0 +1,23 @@
+{
+  "name": "kavach-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kavach rights-in-the-moment engine. Headless. Corpus-grounded. NOT LEGAL ADVICE.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server/index.ts",
+    "replay": "tsx src/cli/replay.ts",
+    "validate": "tsx src/cli/validate.ts",
+    "test": "tsx test/run.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

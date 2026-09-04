@@ -1,0 +1,77 @@
+{
+  "id": "arrest-now",
+  "title": "An arrest is happening now",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "you are under arrest",
+    "giraftar",
+    "arrest kar rahe",
+    "hathkadi",
+    "handcuff",
+    "गिरफ़्तारी",
+    "हथकड़ी",
+    "अरेस्ट कर",
+    "गिरफ़्तार कर",
+    "गिरफ्तार कर",
+    "गिरफ़्तार हैं",
+    "गिरफ्तार हैं"
+  ],
+  "provisionIds": [
+    "BNSS-47",
+    "BNSS-48",
+    "BNSS-58",
+    "CONST-22",
+    "CONST-21"
+  ],
+  "officerCan": [
+    "Arrest where s.35 permits it.",
+    "Use no more force than is necessary to effect the arrest."
+  ],
+  "officerCannot": [
+    "Withhold the grounds of arrest.",
+    "Fail to inform a relative or nominated person of the arrest and place of detention.",
+    "Hold you beyond 24 hours, excluding travel time, without producing you before a Magistrate."
+  ],
+  "quotableLine": {
+    "en": "I am not resisting. Please tell me the grounds of arrest, and please inform my family member on this number.",
+    "hi": "मैं विरोध नहीं कर रहा। कृपया गिरफ़्तारी का आधार बताइए, और इस नंबर पर मेरे परिवार को सूचित कीजिए।"
+  },
+  "doNotSay": [
+    "Anything resembling resistance, pulling away, or raising your hands.",
+    "Any confession or explanation of the alleged offence."
+  ],
+  "documentNow": "The time of arrest, the grounds stated, and the name of the person the police said they would inform.",
+  "options": [
+    {
+      "id": "comply-and-state",
+      "label": "Comply physically, and state the two requests: grounds, and inform family.",
+      "rationale": "Resisting converts a bad arrest into a fresh offence.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "nominate-contact",
+      "label": "Give a specific name and number for the s.48 intimation.",
+      "rationale": "Vague requests get lost; a name and number is actionable.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "note-24h",
+      "label": "Note the arrest time — production before a Magistrate is due within 24 hours excluding travel.",
+      "rationale": "The clock is the single most useful fact for a lawyer.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

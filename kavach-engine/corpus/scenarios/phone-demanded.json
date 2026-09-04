@@ -1,0 +1,73 @@
+{
+  "id": "phone-demanded",
+  "title": "Demand to hand over or unlock the phone",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "phone do",
+    "unlock",
+    "password batao",
+    "give me your phone",
+    "open your phone",
+    "recording band karo",
+    "फ़ोन दो",
+    "फोन दो",
+    "मोबाइल दो",
+    "पासवर्ड बताओ",
+    "अनलॉक",
+    "रिकॉर्डिंग बंद"
+  ],
+  "provisionIds": [
+    "CONST-20-3",
+    "BNSS-SEIZURE-MEMO",
+    "CONST-21"
+  ],
+  "officerCan": [
+    "Seize a phone where the law authorises seizure, following the prescribed procedure and giving you a seizure memo."
+  ],
+  "officerCannot": [
+    "Compel you to be a witness against yourself.",
+    "Take the phone without recording the seizure and giving you a copy of the list."
+  ],
+  "quotableLine": {
+    "en": "If the phone is being seized, please record it and give me the seizure memo. I am not able to give my password.",
+    "hi": "अगर फ़ोन ज़ब्त किया जा रहा है, तो कृपया दर्ज कीजिए और ज़ब्ती मेमो दीजिए। मैं अपना पासवर्ड नहीं दे सकता।"
+  },
+  "doNotSay": [
+    "Anything about deleting or hiding files.",
+    "Any physical struggle over the handset."
+  ],
+  "documentNow": "Whether a seizure memo was given, and the time the phone was taken.",
+  "options": [
+    {
+      "id": "hand-over-locked",
+      "label": "Hand over the device if seizure is asserted, but do not supply the password.",
+      "rationale": "Physical resistance is the greater risk; the password is the separate question.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": "The device leaves your possession."
+    },
+    {
+      "id": "request-memo",
+      "label": "Ask for the seizure memo.",
+      "rationale": "Without it, there is no record the phone was ever taken.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "confirm-evidence-safe",
+      "label": "Check that the session's evidence has already uploaded off the device.",
+      "rationale": "Anything only on the phone is gone once the phone is gone.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

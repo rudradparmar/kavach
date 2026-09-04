@@ -1,0 +1,8 @@
+{
+  "name": "ambiguous",
+  "description": "Nothing classifiable. The engine must say so and give universal safe actions with no section numbers.",
+  "turns": [
+    { "speaker": "user", "text": "Something is happening, there are people here, I am not sure what is going on." },
+    { "speaker": "user", "text": "Someone is talking to me but I cannot hear properly." }
+  ]
+}

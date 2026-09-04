@@ -1,0 +1,76 @@
+{
+  "id": "come-to-station",
+  "title": "\"Come to the station\" — detention or arrest?",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "thane chalo",
+    "station chalo",
+    "come with us",
+    "come to the station",
+    "gaadi mein baitho",
+    "थाने चल",
+    "थाने आ",
+    "चौकी चल",
+    "साथ चलो",
+    "गाड़ी में बैठो",
+    "स्टेशन चल",
+    "थाने ले जा"
+  ],
+  "provisionIds": [
+    "BNSS-35",
+    "BNSS-35-3",
+    "BNSS-47",
+    "CONST-22"
+  ],
+  "officerCan": [
+    "Ask you to attend, and serve a notice of appearance where the law provides for one instead of arrest.",
+    "Arrest without warrant in the circumstances s.35 specifies."
+  ],
+  "officerCannot": [
+    "Hold you in custody without either an arrest or a lawful basis, while calling it something else.",
+    "Refuse to say whether you are under arrest."
+  ],
+  "quotableLine": {
+    "en": "May I know — am I under arrest, or am I free to go? If it is a notice, may I have it in writing?",
+    "hi": "क्या मैं जान सकता हूँ — क्या मुझे गिरफ़्तार किया जा रहा है, या मैं जा सकता हूँ? अगर नोटिस है, तो क्या लिखित में मिल सकता है?"
+  },
+  "doNotSay": [
+    "I'm not going anywhere.",
+    "You can't make me.",
+    "Anything refusing a lawful instruction."
+  ],
+  "documentNow": "The exact answer to \"am I under arrest\", and the time it was asked.",
+  "options": [
+    {
+      "id": "ask-arrest-status",
+      "label": "Ask once, calmly: am I under arrest, or free to go?",
+      "rationale": "The answer determines every right that follows.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "ask-written-notice",
+      "label": "If it is a notice rather than an arrest, ask for it in writing.",
+      "rationale": "A written notice under s.35(3) is the thing you comply with — and complying with it matters later.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "inform-contact",
+      "label": "Tell the officer you are informing a family member, and do it.",
+      "rationale": "Ordinary, non-confrontational, and creates a witness to the time and place.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

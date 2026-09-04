@@ -1,0 +1,15 @@
+{
+  "name": "escalating-traffic-stop",
+  "description": "The canonical case. Starts as a routine document check, becomes a key seizure, becomes a cash demand, becomes 'come to the station'. Tests that the scenario moves and that flags accumulate.",
+  "turns": [
+    { "speaker": "user",    "text": "They stopped me at the checkpoint, the constable is walking over now." },
+    { "speaker": "officer", "text": "Licence dikhao. Papers nikalo." },
+    { "speaker": "user",    "text": "Sir I have a valid licence but I forgot my licence at home, I have the digital copy." },
+    { "speaker": "officer", "text": "Digital nahi chalega. Chaabi do." },
+    { "speaker": "user",    "text": "He has taken my keys out of the ignition." },
+    { "speaker": "officer", "text": "Ab 2000 rupees do aur nikal jao. Challan nahi banega, cash de do." },
+    { "speaker": "user",    "text": "He is asking for cash and says there will be no challan." },
+    { "speaker": "officer", "text": "Nahi dena hai to thane chalo. Station chalo abhi." },
+    { "speaker": "user",    "text": "He says come to the station. He has not said I am under arrest." }
+  ]
+}

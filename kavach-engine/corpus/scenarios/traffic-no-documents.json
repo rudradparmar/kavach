@@ -1,0 +1,80 @@
+{
+  "id": "traffic-no-documents",
+  "title": "Traffic stop — documents not carried",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "licence",
+    "license",
+    "RC",
+    "insurance",
+    "PUC",
+    "documents",
+    "papers",
+    "dikhao",
+    "लाइसेंस",
+    "कागज़",
+    "कागज",
+    "कागज़ात",
+    "दिखाओ",
+    "बीमा",
+    "गाड़ी के पेपर"
+  ],
+  "provisionIds": [
+    "MVA-130",
+    "MVA-158",
+    "MVA-206",
+    "MVA-207"
+  ],
+  "officerCan": [
+    "Ask you to produce your licence and specified documents.",
+    "Note the details and require production within the period allowed by law.",
+    "Act under s.207 where the rider holds no licence at all."
+  ],
+  "officerCannot": [
+    "Treat 'document not carried' the same as 'no licence exists'.",
+    "Detain the vehicle merely because a document was left at home, where the law allows later production.",
+    "Take keys as leverage."
+  ],
+  "quotableLine": {
+    "en": "I hold a valid licence. I can produce the documents within the time the law allows. May I show you the digital copy?",
+    "hi": "मेरे पास वैध लाइसेंस है। कानून जितना समय देता है, उसमें मैं दस्तावेज़ दिखा सकता हूँ। क्या मैं डिजिटल कॉपी दिखा दूँ?"
+  },
+  "doNotSay": [
+    "I don't have any licence.",
+    "Anything that concedes you are unlicensed when you are not."
+  ],
+  "documentNow": "Whether the officer accepted or refused the digital copy, and the reason given.",
+  "options": [
+    {
+      "id": "show-digital",
+      "label": "Offer the digital copy from DigiLocker or mParivahan.",
+      "rationale": "Digital copies are generally accepted in place of physical documents.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "state-licence-exists",
+      "label": "State clearly that a licence exists and only the physical copy is absent.",
+      "rationale": "This is the distinction that decides whether s.207 detention is even available.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": "Say it once, plainly."
+    },
+    {
+      "id": "request-time",
+      "label": "Ask for the production period the law allows.",
+      "rationale": "Later production is the ordinary route where documents were not carried.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": "You will need to actually produce them."
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

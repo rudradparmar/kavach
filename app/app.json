@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Kavach",
+    "slug": "kavach",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "kavach",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.kavach.app"
+    },
+    "android": {
+      "package": "in.kavach.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "_note": "Name is a placeholder. PRD Open Questions: a confrontational name is a design flaw, since an officer may be reading this screen."
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Kavach records the encounter so your words are not lost, and so a lawyer can see what happened. Recording is always visible on screen."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Kavach includes where you are in the alert it sends to your trusted contacts, so somebody knows where to find you. Location is only read when you send an alert."
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

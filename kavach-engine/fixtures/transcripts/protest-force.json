@@ -1,0 +1,11 @@
+{
+  "name": "protest-force",
+  "description": "Dispersal with no order identified, escalating to force against a peaceful assembly.",
+  "turns": [
+    { "speaker": "user",    "text": "We are sitting quietly at the dharna, nobody is doing anything, it is peaceful." },
+    { "speaker": "officer", "text": "Sab log hato. Clear the area right now." },
+    { "speaker": "user",    "text": "I asked which order is in force and he did not answer." },
+    { "speaker": "officer", "text": "Bas hato, warna dekhte hain." },
+    { "speaker": "user",    "text": "They have started lathi charge, they are hitting people who are just sitting." }
+  ]
+}

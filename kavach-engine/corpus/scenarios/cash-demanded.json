@@ -1,0 +1,79 @@
+{
+  "id": "cash-demanded",
+  "title": "Officer demands cash or an inflated amount",
+  "jurisdiction": "IN-CENTRAL",
+  "classifierCues": [
+    "paise",
+    "cash",
+    "settle",
+    "kitna",
+    "how much",
+    "note",
+    "bribe",
+    "adjust",
+    "chai pani",
+    "पैसे",
+    "पैसा",
+    "कितना",
+    "चाय पानी",
+    "रिश्वत",
+    "घूस",
+    "नकद",
+    "सेटल"
+  ],
+  "provisionIds": [
+    "MVA-200"
+  ],
+  "officerCan": [
+    "Compound a compoundable offence, if notified for it, at the prescribed amount.",
+    "Accept payment through the official channel and issue a receipt."
+  ],
+  "officerCannot": [
+    "Set an amount that is not the prescribed one.",
+    "Take money without a receipt or challan.",
+    "Insist on cash when a formal challan is available."
+  ],
+  "quotableLine": {
+    "en": "I would like to pay through the official challan so that I have a receipt.",
+    "hi": "मैं आधिकारिक चालान के ज़रिए भुगतान करना चाहता हूँ ताकि मेरे पास रसीद हो।"
+  },
+  "doNotSay": [
+    "Are you asking for a bribe?",
+    "I will get you suspended.",
+    "Any direct accusation of corruption at the roadside."
+  ],
+  "documentNow": "The exact amount asked for, in the officer's own words, and whether a receipt was offered.",
+  "options": [
+    {
+      "id": "request-receipt",
+      "label": "Ask for a receipt or challan for whatever amount is paid.",
+      "rationale": "A demand that cannot survive a receipt is the thing worth recording.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "offer-digital-pay",
+      "label": "Offer to pay by the official digital route.",
+      "rationale": "Removes the cash element without accusing anyone.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": "May not be available at that location."
+    },
+    {
+      "id": "record-and-complain",
+      "label": "Pay, keep the recording, and complain afterwards through the proper authority.",
+      "rationale": "Ends the encounter, preserves the evidence.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": "You are out of pocket until the complaint succeeds."
+    }
+  ],
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Placeholder from PRD table. Not checked against bare act. Needs advocate sign-off for legal accuracy AND for escalation risk (PRD R3)."
+  }
+}

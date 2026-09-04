@@ -1,0 +1,56 @@
+[
+  {"id":"keys-no-legal-basis","when":[{"fact":"keysTaken","op":"eq","value":"yes"},{"fact":"licenceHeld","op":"eq","value":"yes"}],
+   "severity":"unlawful",
+   "statement":"The keys were taken while the rider holds a valid licence. No provision confers a general power to remove keys from the ignition. Detention of the vehicle under s.207 is a different act, and requires the circumstances that section lists.",
+   "provisionIds":["MVA-207","MVA-206"],"optionIds":["ask-section","ask-paper"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"vehicle-held-for-missing-paper","when":[{"fact":"vehicleBlocked","op":"eq","value":"yes"},{"fact":"licenceHeld","op":"eq","value":"yes"},{"fact":"licenceCarried","op":"eq","value":"no"}],
+   "severity":"irregular",
+   "statement":"The vehicle is being held because a document was not carried, not because no licence exists. Where later production is allowed, that is not a ground to detain the vehicle.",
+   "provisionIds":["MVA-130","MVA-158","MVA-207"],"optionIds":["state-licence-exists","request-time"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"cash-without-receipt","when":[{"fact":"cashDemanded","op":"eq","value":"yes"},{"fact":"formalChallanOffered","op":"eq","value":"no"}],
+   "severity":"irregular",
+   "statement":"Cash is being sought with no challan or receipt offered. Compounding under s.200 is done at the prescribed amount by a notified officer, and produces a record.",
+   "provisionIds":["MVA-200"],"optionIds":["request-receipt","offer-digital-pay"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"custody-without-status","when":[{"fact":"askedToComeToStation","op":"eq","value":"yes"},{"fact":"arrestAsserted","op":"eq","value":"no"},{"fact":"noticeUnderS35Given","op":"eq","value":"no"}],
+   "severity":"irregular",
+   "statement":"You are being taken to the station without an arrest being asserted and without a written notice. One or the other should be identifiable.",
+   "provisionIds":["BNSS-35","BNSS-35-3","CONST-22"],"optionIds":["ask-arrest-status","ask-written-notice"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"arrest-without-grounds","when":[{"fact":"arrestAsserted","op":"eq","value":"yes"},{"fact":"groundsGiven","op":"eq","value":"no"}],
+   "severity":"unlawful",
+   "statement":"An arrest has been asserted but the grounds have not been communicated. A person arrested is entitled to be informed of the grounds.",
+   "provisionIds":["BNSS-47","CONST-22"],"optionIds":["comply-and-state"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"arrest-relative-not-informed","when":[{"fact":"arrestAsserted","op":"eq","value":"yes"},{"fact":"relativeInformed","op":"eq","value":"no"}],
+   "severity":"unlawful",
+   "statement":"An arrest has been asserted and no relative or nominated person has been informed of the arrest and the place of detention.",
+   "provisionIds":["BNSS-48","CONST-22"],"optionIds":["nominate-contact"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"female-search-no-female-officer","when":[{"fact":"searchBegun","op":"eq","value":"yes"},{"fact":"userIsFemale","op":"eq","value":"yes"},{"fact":"femaleOfficerPresent","op":"eq","value":"no"}],
+   "severity":"unlawful",
+   "statement":"A search of a female person is being conducted without a female officer. The search of a female is to be made by a female officer, with strict regard to decency.",
+   "provisionIds":["BNSS-SEARCH-FEMALE"],"optionIds":["request-female-officer","request-witness"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"seizure-without-memo","when":[{"fact":"phoneDemanded","op":"eq","value":"yes"},{"fact":"seizureMemoOffered","op":"eq","value":"no"}],
+   "severity":"irregular",
+   "statement":"Property is being taken with no seizure record offered. A seizure should be recorded, with a list prepared and a copy given to the person it was taken from.",
+   "provisionIds":["BNSS-SEIZURE-MEMO"],"optionIds":["request-memo","hand-over-locked"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"compelled-unlock","when":[{"fact":"unlockDemanded","op":"eq","value":"yes"}],
+   "severity":"irregular",
+   "statement":"You are being asked to unlock the device. A person accused of an offence cannot be compelled to be a witness against himself. Whether that covers a passcode is a contested question — this is a point for a lawyer, not for the roadside.",
+   "provisionIds":["CONST-20-3"],"optionIds":["hand-over-locked","request-memo"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"dispersal-without-identified-order","when":[{"fact":"dispersalOrderGiven","op":"eq","value":"yes"},{"fact":"orderUnderS163Cited","op":"eq","value":"no"}],
+   "severity":"irregular",
+   "statement":"A dispersal is being directed without an order being identified. Which order is in force, and for what area and time, is a fact worth recording.",
+   "provisionIds":["BNSS-163","CONST-19-1-B"],"optionIds":["comply-and-ask","record-order-details"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}},
+
+  {"id":"force-on-peaceful-assembly","when":[{"fact":"forceUsed","op":"eq","value":"yes"},{"fact":"assemblyPeaceful","op":"eq","value":"yes"}],
+   "severity":"unlawful",
+   "statement":"Force is being used against people who are peaceful. Force must be necessary and proportionate to a lawful purpose.",
+   "provisionIds":["CONST-21","CONST-19-1-B"],"optionIds":["get-to-safety","document-from-distance","record-injuries"],"verification":{"status":"unverified","advocate":null,"signedOffAt":null,"reviewDueAt":null,"notes":"Rule logic drafted from PRD. Needs counsel review of both the legal premise and the wording."}}
+]

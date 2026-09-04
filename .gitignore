@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.expo/
+web-build/
+
+# Auth secrets, generated on first boot. See shared/auth.ts.
+# Never commit: this is the instance key and the session-signing secret.
+.kavach-secrets.json
+
+# Runtime state. Both are police-encounter data; neither belongs in git.
+# kavach-engine writes one JSON file per session here (KAVACH_SESSION_DIR).
+kavach-engine/sessions/
+# evidence-service writes chunk audio + manifests here (KAVACH_EVIDENCE_DIR).
+evidence-service/evidence/
+
+# Local environment
+.env
+.env.local
+*.log
+
+# Snapshots / exports
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
