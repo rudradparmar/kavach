@@ -1,6 +1,6 @@
 # Handoff — where this stands
 
-Last updated: 4 September 2026.
+Last updated: 4 September 2026. Under version control since the same day.
 
 ## What exists
 
@@ -224,6 +224,34 @@ Also unfixed: the pre-existing Latin cue `giraftar` in `arrest-now` is bare, so
 `"usne giraftar nahi kaha"` still classifies as an arrest. Narrowing it changes
 the Latin path, which was outside this pass.
 
+---
+
+`deploy/` — the deployment. Three services, one origin, free infrastructure.
+
+- **One hostname, routed by path.** Caddy maps `/engine`, `/stt` and
+  `/evidence` onto the three services and strips the prefix, so each stays
+  unaware it is mounted anywhere. The client derives the other two from
+  whichever address the engine is at, so Settings needs one URL, not three.
+- **Cloudflare Tunnel** carries traffic in over an outbound-only connection.
+  No inbound port is opened, so the host's firewall stays closed and there is
+  no certificate to renew.
+- **Oracle Cloud Always Free** is the target, chosen for the disk rather than
+  the CPU. Both stores assume a persistent filesystem and **neither says so
+  when it is missing** — the engine restores `0 sessions` and carries on, and
+  evidence-service returns a clean 404 for audio that used to exist. On an
+  ephemeral disk the service whose whole purpose is that a recording outlives
+  the handset fails silently and looks healthy. Everything runs unchanged on
+  any always-on machine if Oracle's ARM capacity is unavailable.
+- `deploy/local-proxy.mjs` mirrors the Caddyfile so the deployed shape can be
+  exercised without Docker. This matters because development runs port-mounted
+  and never touches path routing, which is exactly how that path stayed broken.
+  CI runs the whole integration matrix twice, port-mounted and path-mounted.
+- Services are runnable in production for the first time: `tsx` was a
+  devDependency while being the only working runtime, so `npm ci --omit=dev`
+  removed the thing that runs the service. Moved to `dependencies`, `start`
+  scripts added. `npm run build` still produces output that cannot find its
+  corpus — do not use it.
+
 ## What does not exist
 
 Everything operational, and the parts of the client that touch hardware:
@@ -240,11 +268,28 @@ Everything operational, and the parts of the client that touch hardware:
   delivery metric need a server-side sender with credentials. The two channels
   and the message are built; only the sending is manual.
 - Lock-screen widget and panic-mode entry (PRD R1).
-- **TLS.** A bearer token over plain HTTP is a token anyone on the network path
-  can read, which makes the whole auth layer decorative outside a trusted LAN.
-  This is now the first thing to fix.
-- **Rate limiting.** Nothing slows down someone guessing the instance key, and
-  the key does not rotate.
+- ~~TLS~~ — **done.** Cloudflare Tunnel terminates TLS at the edge, so there is
+  a real certificate and no inbound port on the host. See `deploy/`.
+
+  The blocker was never TLS itself. `app/src/stt/client.ts` and
+  `app/src/evidence/client.ts` rebuilt sibling addresses as
+  `protocol + hostname + a hardcoded 8788/8789`, so an engine reached at
+  `https://api.example.com` — port 443 — produced
+  `https://api.example.com:8788/transcribe`, which goes nowhere. Every TLS
+  deployment was unreachable and nothing said so. `siblingUrl()` in
+  `app/src/api/url.ts` now reads the engine URL's own path to pick the shape:
+  a path means one host behind a proxy routing by prefix, no path means three
+  processes on three ports.
+- ~~Rate limiting~~ — **done**, with one non-obvious constraint recorded in
+  `shared/ratelimit.ts`. The limiter is consulted **only after authorisation
+  has already failed**, so a valid credential is never refused. Users in India
+  routinely reach the internet through carrier-grade NAT, so one client address
+  is shared by thousands of people; throttling by address after a successful
+  auth would let one attacker on a carrier lock real users out of starting a
+  session, at a police stop. The first version had this backwards and refused a
+  valid key after 40 wrong ones.
+
+  **The key still does not rotate.** That part is unchanged.
 - **Per-user identity.** Two people sharing a deployment share an instance key.
   Real multi-tenancy needs an identity model the PRD has not asked for.
 
@@ -336,9 +381,9 @@ where `reviewDueAt` is a field in every corpus file that nothing reads.
 The rest of what is left needs a key, a native module, or an answer from a
 person.
 
-1. **TLS in front of the three services.** Auth now exists, and over plain HTTP
-   it is decorative — the token is readable by anyone on the path. This is the
-   remaining half of the same job.
+1. ~~TLS in front of the three services.~~ **Done** — see `deploy/`. The real
+   blocker turned out to be the client's hardcoded sibling ports, not the
+   certificate.
 2. **A real transcription endpoint** — deferred by decision, but it is the only
    way to learn anything about real-world accuracy: code-mixed Hindi-English,
    roadside noise, and what upload actually costs on a weak network. Point
@@ -444,3 +489,25 @@ are closed.
   history contributes 0.5, and a scenario with many more cues than its
   neighbours drifts upward as a session gets longer. Keep counts roughly even
   across scenarios when adding a language.
+- **A limiter placed before an auth check refuses the people it is for.** The
+  rate limiter is consulted only *after* authorisation has already failed, and
+  that ordering is load-bearing rather than stylistic. Users here routinely
+  share one public address through carrier-grade NAT, so throttling by address
+  after a successful auth lets one attacker on a carrier lock real users out of
+  starting a session — at a police stop, which is the only moment the product
+  exists for. The first version had it the other way round and refused a valid
+  key after forty wrong ones. If a limiter is ever added to a new route, charge
+  it on rejection, never on arrival.
+- **Maintenance that runs at boot does not run.** Both retention sweeps used to
+  happen once, before `listen()`, which is fine for a process that restarts
+  constantly and useless for one that stays up — which is now the deployment.
+  A month-old instance held every session and every chunk of audio past every
+  stated bound and reported nothing. `shared/lifecycle.ts` sweeps on a timer;
+  anything else periodic belongs there too, not in a boot sequence.
+- **An async test in a sync harness passes without running.** Making
+  `evidence-service`'s harness accept promises without awaiting its existing
+  calls meant `process.exit` fired while tests were still pending: one test
+  vanished from the run and every group header printed before any result, while
+  the suite still said green. `stt-service` carries a regression check for the
+  same failure because it was bitten first. If a harness gains `await`, every
+  call site needs it in the same change.
