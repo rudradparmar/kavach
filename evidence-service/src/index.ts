@@ -2,6 +2,7 @@ import http from "node:http";
 import { EvidenceStore } from "./store.js";
 import { describeAuth, loadAuthConfig, requireSession } from "../../shared/auth.js";
 import { installShutdown, startRetentionSweep } from "../../shared/lifecycle.js";
+import { clientKey, createRateLimiter } from "../../shared/ratelimit.js";
 
 /**
  * Kavach evidence service (PRD R4).
@@ -69,6 +70,30 @@ const num = (v: string | null): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+
+/**
+ * Slows down guessing at session ids and the instance key.
+ *
+ * Consulted only after authorisation has already failed, so a valid capability
+ * is never refused. Users behind carrier-grade NAT share an address with
+ * thousands of strangers, and a phone that cannot hand over its audio is the
+ * failure this whole service exists to prevent.
+ */
+const authLimiter = createRateLimiter({ capacity: 20, refillPerMinute: 10 });
+
+/** Call after the auth check fails. True when the response is finished. */
+function chargeFailure(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const verdict = authLimiter.take(clientKey(req));
+  if (verdict.allowed) return false;
+  res.writeHead(429, {
+    ...CORS,
+    "content-type": "application/json",
+    "retry-after": String(verdict.retryAfterSeconds),
+  });
+  res.end(JSON.stringify({ error: "too many requests" }));
+  return true;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -97,7 +122,10 @@ const server = http.createServer(async (req, res) => {
       // engine and verified with a shared secret — this service never has to
       // know the engine exists.
       const denied = requireSession(auth, req, sessionId);
-      if (denied) return json(res, denied.status, { error: denied.error });
+      if (denied) {
+        if (chargeFailure(req, res)) return;
+        return json(res, denied.status, { error: denied.error });
+      }
 
       if (req.method === "POST" && parts[2] === "chunk") {
         const seq = num(url.searchParams.get("seq"));

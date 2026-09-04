@@ -4,6 +4,7 @@ import { OpenAiCompatibleProvider, ROMANISATION_PROMPT } from "./openaiCompatibl
 import type { TranscriptionProvider } from "./provider.js";
 import { bearer, describeAuth, loadAuthConfig, requireApiKey, verifySessionToken } from "../../shared/auth.js";
 import { installShutdown } from "../../shared/lifecycle.js";
+import { clientKey, createRateLimiter } from "../../shared/ratelimit.js";
 
 /**
  * Kavach speech-to-text service.
@@ -69,6 +70,29 @@ const readAudio = (req: http.IncomingMessage) =>
     req.on("error", reject);
   });
 
+
+/**
+ * Slows down guessing at tokens for this deployment.
+ *
+ * Consulted only after authorisation has already failed, so a valid capability
+ * is never refused -- see the longer note in kavach-engine's server for why
+ * that ordering matters more here than it usually would.
+ */
+const authLimiter = createRateLimiter({ capacity: 20, refillPerMinute: 10 });
+
+/** Call after the auth check fails. True when the response is finished. */
+function chargeFailure(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const verdict = authLimiter.take(clientKey(req));
+  if (verdict.allowed) return false;
+  res.writeHead(429, {
+    "access-control-allow-origin": "*",
+    "content-type": "application/json",
+    "retry-after": String(verdict.retryAfterSeconds),
+  });
+  res.end(JSON.stringify({ error: "too many requests" }));
+  return true;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -98,9 +122,13 @@ const server = http.createServer(async (req, res) => {
       // still proves the caller started a session on this deployment.
       if (auth.enabled) {
         const token = bearer(req);
-        if (!token) return json(res, 401, { error: "missing bearer token" });
+        if (!token) {
+          if (chargeFailure(req, res)) return;
+          return json(res, 401, { error: "missing bearer token" });
+        }
         const asSession = verifySessionToken(auth, token);
         if (!asSession.ok && requireApiKey(auth, req)) {
+          if (chargeFailure(req, res)) return;
           return json(res, 403, { error: "not a valid token for this deployment" });
         }
       }

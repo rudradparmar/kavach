@@ -11,6 +11,7 @@ import { applyObservation, evaluate, initialFacts } from "../src/engine/facts.js
 import { buildPacket, packetToMarkdown } from "../src/engine/summary.js";
 import { SessionStore } from "../src/server/store.js";
 import { startRetentionSweep } from "../../shared/lifecycle.js";
+import { clientKey, createRateLimiter } from "../../shared/ratelimit.js";
 import {
   mintSessionToken,
   requireApiKey,
@@ -353,6 +354,78 @@ await t("the Hindi escalation reaches the same scenarios and flags as the Latin 
 /* deletion path and the retention sweep are tested as hard as the save  */
 /* path — they are what make durability defensible, not extras.          */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Rate limiting. The instance key is one shared secret that does not   */
+/* rotate, so guessing at it has to get slower. The harder requirement  */
+/* is the other direction: a valid credential must never be refused.    */
+/* ------------------------------------------------------------------ */
+console.log("\nrate limiting");
+
+await t("a burst is allowed up to capacity, then refused", () => {
+  const limiter = createRateLimiter({ capacity: 5, refillPerMinute: 60, now: () => 0 });
+  for (let i = 0; i < 5; i++) {
+    assert(limiter.take("a").allowed, `request ${i + 1} of the burst was refused`);
+  }
+  const over = limiter.take("a");
+  assert(!over.allowed, "capacity+1 was allowed");
+  assert(over.retryAfterSeconds >= 1, "retry-after must be at least a second");
+});
+
+await t("tokens come back over time", () => {
+  let clock = 0;
+  const limiter = createRateLimiter({ capacity: 2, refillPerMinute: 60, now: () => clock });
+  limiter.take("a");
+  limiter.take("a");
+  assert(!limiter.take("a").allowed, "bucket should be empty");
+
+  clock += 1000; // one token per second at 60/min
+  assert(limiter.take("a").allowed, "a token never came back");
+});
+
+await t("one client's failures do not throttle another", () => {
+  const limiter = createRateLimiter({ capacity: 2, refillPerMinute: 1, now: () => 0 });
+  limiter.take("attacker");
+  limiter.take("attacker");
+  assert(!limiter.take("attacker").allowed, "attacker not throttled");
+  assert(limiter.take("someone-else").allowed, "an unrelated client was punished");
+});
+
+await t("refund returns a token without exceeding capacity", () => {
+  const limiter = createRateLimiter({ capacity: 2, refillPerMinute: 0, now: () => 0 });
+  limiter.take("a");
+  limiter.refund("a");
+  limiter.refund("a");
+  limiter.refund("a");
+  assert(limiter.take("a").allowed, "first");
+  assert(limiter.take("a").allowed, "second");
+  assert(!limiter.take("a").allowed, "refund pushed the bucket past capacity");
+});
+
+await t("the client is identified through the proxy, not as the proxy", () => {
+  // Behind Cloudflare Tunnel every request arrives from cloudflared, so the
+  // socket address is identical for every user on earth. Limiting on it would
+  // throttle all of them as one client and stop no attacker.
+  const req = (headers: Record<string, string>, socketAddr = "10.0.0.1") =>
+    ({ headers, socket: { remoteAddress: socketAddr } }) as never;
+
+  const is = (actual: string, expected: string, why: string) =>
+    assert(actual === expected, `${why}: expected ${expected}, got ${actual}`);
+
+  is(clientKey(req({ "cf-connecting-ip": "203.0.113.9" })), "203.0.113.9", "cf-connecting-ip wins");
+  is(
+    clientKey(req({ "x-forwarded-for": "203.0.113.9, 70.41.3.18" })),
+    "203.0.113.9",
+    "left-most x-forwarded-for is the original client",
+  );
+  is(clientKey(req({})), "10.0.0.1", "falls back to the socket in development");
+  is(
+    clientKey(req({ "cf-connecting-ip": "203.0.113.9", "x-forwarded-for": "1.2.3.4" })),
+    "203.0.113.9",
+    "cf-connecting-ip is preferred over a header a client could set",
+  );
+});
+
 console.log("\nsession store");
 
 const tmpDir = mkdtempSync(path.join(tmpdir(), "kavach-store-"));

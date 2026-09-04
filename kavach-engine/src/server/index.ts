@@ -5,6 +5,7 @@ import { makeProviderAsync } from "../llm/anthropic.js";
 import { loadCorpus } from "../corpus/loader.js";
 import { SessionStore } from "./store.js";
 import { installShutdown, startRetentionSweep } from "../../../shared/lifecycle.js";
+import { clientKey, createRateLimiter } from "../../../shared/ratelimit.js";
 import {
   describeAuth,
   loadAuthConfig,
@@ -59,6 +60,44 @@ const readBody = (req: http.IncomingMessage) =>
     req.on("error", reject);
   });
 
+/**
+ * Slows down guessing at the instance key, which is one shared secret that
+ * does not rotate.
+ *
+ * **A request carrying a valid credential is never refused by this.** The
+ * limiter is consulted only after authorisation has already failed, which
+ * matters more here than it would in most products. Many users in India reach
+ * the internet through carrier-grade NAT, so a "client address" is routinely
+ * shared by thousands of people. Throttling by address after a successful auth
+ * would let one attacker -- or one looping client -- on a carrier lock real
+ * users out of starting a session, and the moment they need to start one is a
+ * police stop. Refusing a legitimate session is a worse outcome than any
+ * amount of failed-credential traffic.
+ *
+ * The cost of ordering it this way is that an unauthenticated attacker still
+ * makes the service do one HMAC comparison per attempt. That is cheap, and it
+ * is the right thing to spend to keep the front door open.
+ */
+const authLimiter = createRateLimiter({ capacity: 20, refillPerMinute: 10 });
+
+/**
+ * Charges a token for a failed credential and answers 429 once the bucket is
+ * empty. Returns true when the response is finished.
+ *
+ * Call this *after* the auth check fails, never before it.
+ */
+function chargeFailure(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const verdict = authLimiter.take(clientKey(req));
+  if (verdict.allowed) return false;
+  res.writeHead(429, {
+    ...CORS,
+    "content-type": "application/json",
+    "retry-after": String(verdict.retryAfterSeconds),
+  });
+  res.end(JSON.stringify({ error: "too many requests" }));
+  return true;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -81,7 +120,10 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/corpus") {
       const denied = requireApiKey(auth, req);
-      if (denied) return json(res, denied.status, { error: denied.error });
+      if (denied) {
+        if (chargeFailure(req, res)) return;
+        return json(res, denied.status, { error: denied.error });
+      }
       const c = loadCorpus();
       return json(res, 200, {
         meta: c.meta,
@@ -93,8 +135,17 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/session") {
       const denied = requireApiKey(auth, req);
-      if (denied) return json(res, denied.status, { error: denied.error });
+      if (denied) {
+        if (chargeFailure(req, res)) return;
+        return json(res, denied.status, { error: denied.error });
+      }
 
+      // Deliberately no cap on session creation by a caller holding a valid
+      // key. Everyone on a deployment shares one instance key -- R1 forbids a
+      // login -- so "one key creating many sessions" is exactly what normal
+      // multi-user traffic looks like, and cannot be told apart from abuse.
+      // Disk is bounded by retention and by the evidence service's per-session
+      // cap instead, neither of which can refuse a person mid-encounter.
       const s = new Session(provider);
       sessions.set(s.state.sessionId, s);
       store.save(s.state);
@@ -112,7 +163,10 @@ const server = http.createServer(async (req, res) => {
       // only unauthenticated callers see is itself an oracle for which ids
       // are real.
       const denied = requireSession(auth, req, parts[1]);
-      if (denied) return json(res, denied.status, { error: denied.error });
+      if (denied) {
+        if (chargeFailure(req, res)) return;
+        return json(res, denied.status, { error: denied.error });
+      }
 
       const s = sessions.get(parts[1]);
       if (!s) return json(res, 404, { error: "unknown session" });
