@@ -123,6 +123,18 @@ export function makeProvider(): LlmProvider {
 export async function makeProviderAsync(): Promise<LlmProvider> {
   const which = (process.env.KAVACH_LLM_PROVIDER ?? "mock").toLowerCase();
   if (which === "anthropic") return new AnthropicProvider();
+
+  // Anything unrecognised is a mistake, not a request for the default. This
+  // used to fall through to the mock silently, so a typo on a deployed
+  // instance left a keyword matcher classifying real encounters with nothing
+  // in the logs to say so. stt-service already refuses the same way, and the
+  // two behaving differently was itself the bug worth removing.
+  if (which !== "mock") {
+    throw new Error(
+      `Unknown KAVACH_LLM_PROVIDER "${which}". Use "mock" or "anthropic".`,
+    );
+  }
+
   const { MockProvider } = await import("./mock.js");
   return new MockProvider();
 }

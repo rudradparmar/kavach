@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { EvidenceStore } from "../src/store.js";
+import { startRetentionSweep } from "../../shared/lifecycle.js";
 
 /**
  * Same hand-rolled shape as the other packages: no framework, runs under tsx.
@@ -17,16 +18,17 @@ let pass = 0;
 let fail = 0;
 const group = (n: string) => console.log(`\n${n}`);
 
-function t(name: string, fn: () => void) {
-  try {
-    fn();
-    pass += 1;
-    console.log(`  \x1b[32m✓\x1b[0m ${name}`);
-  } catch (e) {
-    fail += 1;
-    console.log(`  \x1b[31m✗\x1b[0m ${name}\n      ${(e as Error).message}`);
-  }
-}
+const t = (name: string, fn: () => void | Promise<void>) =>
+  Promise.resolve()
+    .then(fn)
+    .then(() => {
+      pass += 1;
+      console.log(`  \x1b[32m✓\x1b[0m ${name}`);
+    })
+    .catch((e) => {
+      fail += 1;
+      console.log(`  \x1b[31m✗\x1b[0m ${name}\n      ${(e as Error).message}`);
+    });
 
 function assert(c: unknown, m: string): asserts c {
   if (!c) throw new Error(m);
@@ -57,7 +59,7 @@ const put = (store: EvidenceStore, seq: number, body: Buffer, sessionId = SID) =
 /* ------------------------------------------------------------------ */
 group("receipt");
 
-t("a chunk is stored and comes back byte-identical", () => {
+await t("a chunk is stored and comes back byte-identical", () => {
   const store = newStore();
   const body = audio(2048, 42);
   const r = put(store, 0, body);
@@ -68,7 +70,7 @@ t("a chunk is stored and comes back byte-identical", () => {
   assert(back.body.equals(body), "bytes changed in storage");
 });
 
-t("the hash is computed over what arrived, not supplied by the uploader", () => {
+await t("the hash is computed over what arrived, not supplied by the uploader", () => {
   const store = newStore();
   const body = audio(4096, 99);
   const r = put(store, 0, body);
@@ -76,7 +78,7 @@ t("the hash is computed over what arrived, not supplied by the uploader", () => 
   eq(r.chunk.sha256, createHash("sha256").update(body).digest("hex"), "sha256");
 });
 
-t("two different chunks do not share a hash", () => {
+await t("two different chunks do not share a hash", () => {
   const store = newStore();
   const a = put(store, 0, audio(1024, 1));
   const b = put(store, 1, audio(1024, 2));
@@ -84,7 +86,7 @@ t("two different chunks do not share a hash", () => {
   assert(a.chunk.sha256 !== b.chunk.sha256, "hashes collided on different content");
 });
 
-t("the receipt timestamp is the server's, and the device claim is kept beside it", () => {
+await t("the receipt timestamp is the server's, and the device claim is kept beside it", () => {
   // A timestamp the phone controls is worth nothing in an argument about when
   // something happened.
   const store = newStore();
@@ -104,7 +106,7 @@ t("the receipt timestamp is the server's, and the device claim is kept beside it
   assert(Date.parse(r.chunk.receivedAt) > Date.parse("2020-01-01"), "receipt time is not real");
 });
 
-t("location rides along with the audio", () => {
+await t("location rides along with the audio", () => {
   const store = newStore();
   const r = put(store, 0, audio(256));
   assert(r.ok, "accept failed");
@@ -115,7 +117,7 @@ t("location rides along with the audio", () => {
 /* ------------------------------------------------------------------ */
 group("resilience");
 
-t("re-uploading a sequence number is idempotent, not a duplicate recording", () => {
+await t("re-uploading a sequence number is idempotent, not a duplicate recording", () => {
   // A client that uploaded but lost the acknowledgement will retry. Ten
   // seconds of an encounter must not end up stored twice.
   const store = newStore();
@@ -128,7 +130,7 @@ t("re-uploading a sequence number is idempotent, not a duplicate recording", () 
   eq(store.readManifest(SID)?.chunks.length, 1, "stored twice");
 });
 
-t("out-of-order arrivals are stored in sequence order", () => {
+await t("out-of-order arrivals are stored in sequence order", () => {
   // A queue draining after reconnection does not arrive in order.
   const store = newStore();
   for (const seq of [4, 0, 2, 1, 3]) put(store, seq, audio(128, seq));
@@ -136,7 +138,7 @@ t("out-of-order arrivals are stored in sequence order", () => {
   eq(JSON.stringify(seqs), JSON.stringify([0, 1, 2, 3, 4]), "manifest order");
 });
 
-t("acknowledged sequences are reportable, so a phone can resume", () => {
+await t("acknowledged sequences are reportable, so a phone can resume", () => {
   // "Given the phone is switched off mid-session, all acknowledged chunks are
   // present" — this is how the client works out what it still owes.
   const store = newStore();
@@ -144,7 +146,7 @@ t("acknowledged sequences are reportable, so a phone can resume", () => {
   eq(JSON.stringify(store.acknowledgedSeqs(SID)), JSON.stringify([0, 1, 2, 5]), "acks");
 });
 
-t("a manifest survives a fresh store over the same directory", () => {
+await t("a manifest survives a fresh store over the same directory", () => {
   const store = newStore();
   put(store, 0, audio(512));
   put(store, 1, audio(512));
@@ -156,7 +158,7 @@ t("a manifest survives a fresh store over the same directory", () => {
 /* ------------------------------------------------------------------ */
 group("refusals");
 
-t("a session id that is not a uuid never reaches the filesystem", () => {
+await t("a session id that is not a uuid never reaches the filesystem", () => {
   const store = newStore();
   for (const evil of ["../../escape", "..", "a/b", ""]) {
     const r = store.accept({
@@ -173,7 +175,7 @@ t("a session id that is not a uuid never reaches the filesystem", () => {
   }
 });
 
-t("an empty chunk and a negative sequence are refused", () => {
+await t("an empty chunk and a negative sequence are refused", () => {
   const store = newStore();
   const empty = put(store, 0, Buffer.alloc(0));
   assert(!empty.ok, "accepted an empty chunk");
@@ -181,7 +183,7 @@ t("an empty chunk and a negative sequence are refused", () => {
   assert(!negative.ok, "accepted a negative sequence");
 });
 
-t("one session cannot fill the disk", () => {
+await t("one session cannot fill the disk", () => {
   const store = newStore({ maxSessionBytes: 4096 });
   assert(put(store, 0, audio(2048)).ok, "first chunk refused");
   assert(put(store, 1, audio(2048)).ok, "second chunk refused");
@@ -190,7 +192,7 @@ t("one session cannot fill the disk", () => {
   assert(over.ok === false && over.status === 413, "wrong status for over-limit");
 });
 
-t("a corrupt manifest does not take the service down", () => {
+await t("a corrupt manifest does not take the service down", () => {
   const store = newStore();
   put(store, 0, audio(256));
   writeFileSync(path.join(store.dir, SID, "manifest.json"), "{ not json");
@@ -201,7 +203,7 @@ t("a corrupt manifest does not take the service down", () => {
 /* ------------------------------------------------------------------ */
 group("deletion and retention");
 
-t("deletion is immediate and takes the audio with it (PRD R4)", () => {
+await t("deletion is immediate and takes the audio with it (PRD R4)", () => {
   const store = newStore();
   put(store, 0, audio(1024));
   put(store, 1, audio(1024));
@@ -213,7 +215,7 @@ t("deletion is immediate and takes the audio with it (PRD R4)", () => {
   eq(store.listSessions().length, 0, "session directory survived deletion");
 });
 
-t("deleting one session leaves the others alone", () => {
+await t("deleting one session leaves the others alone", () => {
   const store = newStore();
   put(store, 0, audio(256), SID);
   put(store, 0, audio(256), SID2);
@@ -222,7 +224,38 @@ t("deleting one session leaves the others alone", () => {
   assert(store.readManifest(SID2) !== null, "deleted an unrelated session");
 });
 
-t("retention sweeps what is old and spares what is not", () => {
+await t("retention keeps sweeping without a restart", async () => {
+  // The defect this pins: sweep() ran once before listen() and never again,
+  // so a long-running deployment held every chunk of audio ever uploaded,
+  // past the stated 30 days, while still reporting bounded retention.
+  // Everything below happens in one process, with no reboot.
+  const store = newStore({ retentionDays: 30 });
+  const sweeper = startRetentionSweep({
+    label: "test",
+    sweep: () => store.sweep(),
+    intervalMinutes: 0.002, // 120ms
+    log: () => {},
+  });
+
+  try {
+    // Uploaded after the boot sweep has already run, which is precisely the
+    // case the old code could never collect.
+    put(store, 0, audio(256), SID);
+    const p = path.join(store.dir, SID, "manifest.json");
+    const m = JSON.parse(readFileSync(p, "utf8")) as { lastReceivedAt: string };
+    m.lastReceivedAt = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
+    writeFileSync(p, JSON.stringify(m));
+    assert(store.readManifest(SID) !== null, "setup failed: no manifest");
+
+    await new Promise((r) => setTimeout(r, 400));
+
+    eq(store.readManifest(SID), null, "the timer never swept the stale audio");
+  } finally {
+    sweeper.stop();
+  }
+});
+
+await t("retention sweeps what is old and spares what is not", () => {
   const store = newStore({ retentionDays: 30 });
   put(store, 0, audio(256), SID);
   put(store, 0, audio(256), SID2);

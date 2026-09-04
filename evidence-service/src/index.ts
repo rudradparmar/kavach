@@ -1,6 +1,7 @@
 import http from "node:http";
 import { EvidenceStore } from "./store.js";
 import { describeAuth, loadAuthConfig, requireSession } from "../../shared/auth.js";
+import { installShutdown, startRetentionSweep } from "../../shared/lifecycle.js";
 
 /**
  * Kavach evidence service (PRD R4).
@@ -158,13 +159,26 @@ const server = http.createServer(async (req, res) => {
 });
 
 const PORT = Number(process.env.PORT ?? 8789);
-const swept = store.sweep();
+
+// Sweeps now and then on a timer. It used to sweep only at boot, so a
+// long-running deployment held every chunk of audio ever uploaded, past the
+// stated 30 days, while still telling users retention was bounded.
+const sweeper = startRetentionSweep({
+  label: "evidence store",
+  sweep: () => store.sweep(),
+  log: (m) => console.log(m),
+});
+
 server.listen(PORT, () => {
   console.log(`kavach-evidence on :${PORT}`);
   console.log(describeAuth(auth));
   console.log(
-    `  ${store.listSessions().length} session(s) held in ${store.dir} · kept ${store.retentionDays} days · ${Math.round(store.maxSessionBytes / 1024 / 1024)}MB per session`,
+    `  ${store.listSessions().length} session(s) held in ${store.dir} · kept ${store.retentionDays} days · ${Math.round(store.maxSessionBytes / 1024 / 1024)}MB per session · swept every ${sweeper.intervalMinutes}m`,
   );
-  if (swept > 0) console.log(`  swept ${swept} session(s) past retention`);
+  if (sweeper.sweptAtBoot > 0) console.log(`  swept ${sweeper.sweptAtBoot} session(s) past retention at boot`);
   console.log("\n  !! This directory holds audio of encounters with police. Treat it accordingly.\n");
 });
+
+// A chunk the phone believes was acknowledged is a chunk the phone deletes,
+// so a redeploy must not drop one mid-write.
+installShutdown({ label: "kavach-evidence", server, onStop: () => sweeper.stop() });

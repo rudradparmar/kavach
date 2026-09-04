@@ -3,6 +3,7 @@ import { MockProvider } from "./mock.js";
 import { OpenAiCompatibleProvider, ROMANISATION_PROMPT } from "./openaiCompatible.js";
 import type { TranscriptionProvider } from "./provider.js";
 import { bearer, describeAuth, loadAuthConfig, requireApiKey, verifySessionToken } from "../../shared/auth.js";
+import { installShutdown } from "../../shared/lifecycle.js";
 
 /**
  * Kavach speech-to-text service.
@@ -149,3 +150,7 @@ server.listen(PORT, () => {
     console.log("\n  !! SIMULATED PROVIDER — audio is NOT transcribed. Canned text only.\n");
   }
 });
+
+// Nothing to sweep -- this service stores nothing. It still needs to let an
+// in-flight transcription finish rather than dropping it on a redeploy.
+installShutdown({ label: "kavach-stt", server });

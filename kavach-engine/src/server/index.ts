@@ -4,6 +4,7 @@ import { buildPacket, packetToMarkdown } from "../engine/summary.js";
 import { makeProviderAsync } from "../llm/anthropic.js";
 import { loadCorpus } from "../corpus/loader.js";
 import { SessionStore } from "./store.js";
+import { installShutdown, startRetentionSweep } from "../../../shared/lifecycle.js";
 import {
   describeAuth,
   loadAuthConfig,
@@ -170,12 +171,19 @@ makeProviderAsync().then((p) => {
   provider = p;
   const c = loadCorpus();
 
+  let sweeper: { intervalMinutes: number; sweptAtBoot: number; stop(): void } | null = null;
   if (store.enabled) {
-    const swept = store.sweep();
+    // Sweeps now and then on a timer. It used to sweep only here, which meant
+    // a process that stayed up -- the whole point of a host that never sleeps
+    // -- never enforced retention again after boot.
+    sweeper = startRetentionSweep({
+      label: "session store",
+      sweep: () => store.sweep(),
+      log: (m) => console.log(m),
+    });
     for (const state of store.loadAll()) {
       sessions.set(state.sessionId, new Session(p, { state }));
     }
-    if (swept > 0) console.log(`session store: swept ${swept} session(s) past ${store.retentionDays} days`);
   }
 
   server.listen(PORT, () => {
@@ -183,11 +191,19 @@ makeProviderAsync().then((p) => {
     console.log(describeAuth(auth));
     console.log(
       store.enabled
-        ? `  sessions: ${sessions.size} restored · persisted to ${store.dir} · kept ${store.retentionDays} days`
+        ? `  sessions: ${sessions.size} restored · persisted to ${store.dir} · kept ${store.retentionDays} days` +
+            ` · swept every ${sweeper ? sweeper.intervalMinutes : 0}m`
         : "  sessions: in memory only (KAVACH_PERSIST_SESSIONS=0) — packets die with this process",
     );
+    if (sweeper && sweeper.sweptAtBoot > 0) {
+      console.log(`  swept ${sweeper.sweptAtBoot} session(s) past retention at boot`);
+    }
     if (c.meta.status !== "counsel-signed-off") {
       console.log("\n  !! CORPUS IS UNVERIFIED — engineering use only. Do not put this in front of a user.\n");
     }
   });
+
+  // A redeploy must not cut a turn mid-write. store.save() runs after every
+  // turn, so at most the in-flight one is at risk, and this closes that.
+  installShutdown({ label: "kavach-engine", server, onStop: () => sweeper?.stop() });
 });

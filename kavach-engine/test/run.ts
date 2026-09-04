@@ -10,6 +10,7 @@ import { guard } from "../src/engine/guard.js";
 import { applyObservation, evaluate, initialFacts } from "../src/engine/facts.js";
 import { buildPacket, packetToMarkdown } from "../src/engine/summary.js";
 import { SessionStore } from "../src/server/store.js";
+import { startRetentionSweep } from "../../shared/lifecycle.js";
 import {
   mintSessionToken,
   requireApiKey,
@@ -451,6 +452,52 @@ await t("retention sweeps sessions older than the window, and spares the rest", 
   const left = store.loadAll();
   assert(left.length === 1, `expected 1 left, got ${left.length}`);
   assert(left[0]!.sessionId === recent.state.sessionId, "swept the wrong session");
+});
+
+await t("retention keeps sweeping without a restart", async () => {
+  // The defect this pins: sweep() ran once before listen() and never again,
+  // so a deployment that stayed up -- the whole point of a host that never
+  // sleeps -- stopped enforcing retention the moment it finished booting.
+  // Everything below happens in one process, with no reboot.
+  const store = newStore(7);
+  const sweeper = startRetentionSweep({
+    label: "test",
+    sweep: () => store.sweep(),
+    intervalMinutes: 0.002, // 120ms
+    log: () => {},
+  });
+
+  try {
+    // Written *after* the boot sweep has already run, which is exactly the
+    // case the old code could never collect.
+    const stale = await ranSession();
+    stale.state.startedAt = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    store.save(stale.state);
+    assert(store.loadAll().length === 1, "setup failed: session not saved");
+
+    await new Promise((r) => setTimeout(r, 400));
+
+    assert(store.loadAll().length === 0, "the timer never swept the stale session");
+  } finally {
+    sweeper.stop();
+  }
+});
+
+await t("a sweep that throws does not take the service down", async () => {
+  // Retention that is late is recoverable. A process that died trying to
+  // enforce it is not, and it takes the live encounters with it.
+  const sweeper = startRetentionSweep({
+    label: "test",
+    sweep: () => { throw new Error("disk on fire"); },
+    intervalMinutes: 0.002,
+    log: () => {},
+  });
+  try {
+    assert(sweeper.sweptAtBoot === 0, "a failed sweep reported a count");
+    await new Promise((r) => setTimeout(r, 200));
+  } finally {
+    sweeper.stop();
+  }
 });
 
 await t("a corrupt file is skipped, not fatal", async () => {
