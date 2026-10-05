@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { GuidanceUpdate, RaisedFlag, Speaker } from "../api/types";
-import { UnverifiedBanner } from "../components/Banners";
+import type { GuidanceUpdate, RaisedFlag, Scenario, Speaker } from "../api/types";
+import { ReviewBanner, UnverifiedBanner } from "../components/Banners";
 import { Composer } from "../components/Composer";
 import { EvidenceStatus } from "../components/EvidenceStatus";
 import { Guidance } from "../components/Guidance";
@@ -23,6 +23,9 @@ import { colour, radius, space, type } from "../theme";
 export function SessionScreen({
   sessionId,
   update,
+  translationStatus,
+  officerCount,
+  onRecordOfficer,
   allFlags,
   transcript,
   evidence,
@@ -31,6 +34,7 @@ export function SessionScreen({
   latency,
   turnCount,
   corpusStatus,
+  corpusReview,
   corpusVersion,
   speaker,
   onSpeakerChange,
@@ -49,6 +53,11 @@ export function SessionScreen({
 }: {
   sessionId: string;
   update: GuidanceUpdate | null;
+  /** From the cached corpus, for the scenario this update names. */
+  translationStatus?: Scenario["translationStatus"];
+  /** How many officer records exist so far (PRD R11). */
+  officerCount: number;
+  onRecordOfficer: () => void;
   allFlags: RaisedFlag[];
   transcript: Transcript | null;
   evidence: {
@@ -57,12 +66,21 @@ export function SessionScreen({
     pendingCount: number;
     serviceReachable: boolean;
     error: string | null;
+    background: boolean;
   };
   speech: SpeechState;
   timing: TurnTiming | null;
   latency: LatencySummary;
   turnCount: number;
   corpusStatus: string | null;
+  /** PRD R6, straight from /health. Absent when the engine did not report it. */
+  corpusReview?: {
+    overdue: number;
+    dueSoon: number;
+    neverReviewed: number;
+    total: number;
+    reviewIntervalDays: number;
+  } | null;
   corpusVersion: string | null;
   speaker: Speaker;
   onSpeakerChange: (s: Speaker) => void;
@@ -95,6 +113,21 @@ export function SessionScreen({
           <Pressable onPress={onAlert} style={s.alertButton} accessibilityRole="button" hitSlop={8}>
             <Text style={s.alertButtonText}>Alert</Text>
           </Pressable>
+          {/* PRD R11 asks for these to be captured "while it is still
+              visible", which means from here rather than from the packet
+              afterwards. The count is shown so the user can see that what
+              they typed was kept. */}
+          <Pressable
+            onPress={onRecordOfficer}
+            style={s.officerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Record who stopped you"
+            hitSlop={8}
+          >
+            <Text style={s.officerButtonText}>
+              Officer{officerCount > 0 ? ` ${officerCount}` : ""}
+            </Text>
+          </Pressable>
           <Pressable onPress={onEnd} style={s.endButton} accessibilityRole="button" hitSlop={8}>
             <Text style={s.endButtonText}>End</Text>
           </Pressable>
@@ -110,12 +143,15 @@ export function SessionScreen({
       >
         <UnverifiedBanner corpusStatus={corpusStatus} corpusVersion={corpusVersion} />
 
+        <ReviewBanner review={corpusReview} />
+
         <EvidenceStatus
           capturing={evidence.capturing}
           safe={evidence.safe}
           pendingCount={evidence.pendingCount}
           serviceReachable={evidence.serviceReachable}
           error={evidence.error}
+          background={evidence.background}
         />
 
         {transcript ? <TranscriptChip transcript={transcript} /> : null}
@@ -127,7 +163,12 @@ export function SessionScreen({
         ) : null}
 
         {update ? (
-          <Guidance update={update} allFlags={allFlags} speech={speech} />
+          <Guidance
+            update={update}
+            allFlags={allFlags}
+            speech={speech}
+            translationStatus={translationStatus}
+          />
         ) : (
           <View style={s.empty}>
             <Text style={s.emptyTitle}>Describe what is happening</Text>
@@ -204,6 +245,15 @@ const s = StyleSheet.create({
     borderColor: colour.warn,
     backgroundColor: colour.warnBg,
   },
+  officerButton: {
+    minHeight: 36,
+    paddingHorizontal: space.md,
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colour.border,
+  },
+  officerButtonText: { color: colour.textMuted, fontSize: type.label, fontWeight: "700" },
   alertButtonText: { color: colour.warn, fontSize: type.label, fontWeight: "700" },
 
   scroll: { padding: space.lg, gap: space.lg, paddingBottom: space.xl },

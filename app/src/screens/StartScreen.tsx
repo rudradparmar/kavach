@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import type { Health, Scenario } from "../api/types";
 import type { CorpusCacheState } from "../offline/corpusCache";
 import type { SttHealth } from "../stt/types";
-import { UnverifiedBanner } from "../components/Banners";
+import { ReviewBanner, UnverifiedBanner } from "../components/Banners";
 import { colour, radius, space, type } from "../theme";
 
 /**
@@ -68,6 +68,11 @@ export function StartScreen({
         corpusStatus={health?.corpusStatus ?? "unverified"}
         corpusVersion={health?.corpusVersion ?? null}
       />
+
+      {/* PRD R6, before a session rather than only during one: staleness is
+          a reason not to rely on the content at all, so it belongs where the
+          decision to start is made. */}
+      <ReviewBanner review={health?.corpusReview ?? null} />
 
       <View style={s.buttonArea}>
         <Pressable

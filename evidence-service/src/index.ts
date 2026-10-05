@@ -9,6 +9,7 @@ import { clientKey, createRateLimiter } from "../../shared/ratelimit.js";
  *
  * POST   /session/:id/chunk?seq=N   raw audio bytes -> { seq, receivedAt, sha256 }
  * GET    /session/:id/manifest      what is held, with hashes and receipt times
+ * GET    /session/:id/trail         position fixes recorded with the audio (PRD R8)
  * GET    /session/:id/acks          sequence numbers already stored, for resume
  * GET    /session/:id/chunk/:seq    the bytes back, playable
  * DELETE /session/:id               permanent deletion
@@ -155,6 +156,12 @@ const server = http.createServer(async (req, res) => {
         const m = store.readManifest(sessionId);
         if (!m) return json(res, 404, { error: "no evidence for this session" });
         return json(res, 200, m);
+      }
+
+      if (req.method === "GET" && parts[2] === "trail") {
+        // The packet's location trail (PRD R8). Derived from the manifest, so
+        // it is deleted by the same DELETE and swept by the same retention.
+        return json(res, 200, { sessionId, fixes: store.trail(sessionId) });
       }
 
       if (req.method === "GET" && parts[2] === "acks") {

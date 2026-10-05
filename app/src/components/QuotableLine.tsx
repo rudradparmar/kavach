@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { QuotableLine as Line } from "../api/types";
+import type { QuotableLine as Line, TranslationStatus } from "../api/types";
 import type { SpeechLang, SpeechState } from "../tts/speech";
 import { unavailableReason } from "../tts/speech";
+import { BCP47, ENDONYM, ENGLISH_NAME, SPEECH_LANGS } from "../tts/languages";
 import { colour, radius, space, TAP_MIN, type } from "../theme";
 
 /**
@@ -13,9 +15,13 @@ import { colour, radius, space, TAP_MIN, type } from "../theme";
  *     pace and repeat it. Playback never replaces the words on screen —
  *     nothing here is ever audio-only. (HANDOFF: "the screen must show the
  *     text simultaneously so the user can read rather than listen".)
- *   · Both languages are always present. English carries the display size;
+ *   · The launch pair is always present. English carries the display size;
  *     Hindi sits directly beneath at reading size. Neither is ever omitted —
  *     the user may need to speak one and understand the other.
+ *   · The other languages (PRD R12) sit under a row of chips, in their own
+ *     scripts, and open one at a time. They are not stacked above the fold
+ *     because seven blocks of text is not something anyone reads at a police
+ *     stop — and the pair that must always be visible is the one PRD R3 names.
  *   · Playback is per language and always a deliberate tap. Where the device
  *     has no voice for a language the control is disabled and says so, rather
  *     than letting the platform substitute a voice and mispronounce a line the
@@ -24,7 +30,32 @@ import { colour, radius, space, TAP_MIN, type } from "../theme";
  * Both strings are rendered verbatim from the corpus. Nothing here trims,
  * reflows, translates or abbreviates them.
  */
-export function QuotableLineCard({ line, speech }: { line: Line; speech: SpeechState }) {
+export function QuotableLineCard({
+  line,
+  speech,
+  translationStatus,
+}: {
+  line: Line;
+  speech: SpeechState;
+  translationStatus?: Partial<Record<SpeechLang, TranslationStatus>>;
+}) {
+  // Only languages this line actually carries, and only ones the app knows
+  // how to ask a voice for. A chip for a language with no text behind it is
+  // a control that does nothing, discovered mid-encounter.
+  const extras = SPEECH_LANGS.filter(
+    (l) => l !== "en" && l !== "hi" && typeof line[l] === "string" && (line[l] as string).trim().length > 0,
+  );
+  const [open, setOpen] = useState<SpeechLang | null>(null);
+  const openText = open ? (line[open] as string | undefined) : undefined;
+
+  // True when anything on this card is a rendering rather than the original.
+  // Said once, about all of them, rather than per language: singling out the
+  // newer languages would imply the Hindi line has been reviewed, and it has
+  // not been.
+  const anyRendered =
+    translationStatus === undefined ||
+    Object.entries(translationStatus).some(([code, st]) => code !== "en" && st !== "source");
+
   return (
     <View style={s.card}>
       <Text style={s.label}>SAY THIS</Text>
@@ -44,6 +75,49 @@ export function QuotableLineCard({ line, speech }: { line: Line; speech: SpeechS
         </Text>
         <PlayControl lang="hi" text={line.hi} speech={speech} />
       </View>
+
+      {extras.length > 0 ? (
+        <View style={s.extras}>
+          <View style={s.chipRow}>
+            {extras.map((lang) => {
+              const active = open === lang;
+              return (
+                <Pressable
+                  key={lang}
+                  onPress={() => setOpen(active ? null : lang)}
+                  style={({ pressed }) => [s.chip, active && s.chipActive, pressed && s.chipPressed]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${active ? "Hide" : "Show"} the ${ENGLISH_NAME[lang]} version`}
+                >
+                  <Text
+                    style={[s.chipText, active && s.chipTextActive]}
+                    accessibilityLanguage={BCP47[lang]}
+                  >
+                    {ENDONYM[lang]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {open && openText ? (
+            <View style={s.block}>
+              <Text style={s.other} selectable accessibilityLanguage={BCP47[open]}>
+                {openText}
+              </Text>
+              <PlayControl lang={open} text={openText} speech={speech} />
+            </View>
+          ) : null}
+
+          {anyRendered ? (
+            <Text style={s.caveat}>
+              The English wording is the original. Every other language here is a rendering of it that no
+              advocate has read.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {speech.error ? <Text style={s.error}>{speech.error}</Text> : null}
     </View>
@@ -80,8 +154,8 @@ function PlayControl({
           disabled
             ? `${reason}`
             : isSpeaking
-              ? `Stop reading the ${lang === "hi" ? "Hindi" : "English"} line`
-              : `Read the ${lang === "hi" ? "Hindi" : "English"} line aloud, slowly`
+              ? `Stop reading the ${ENGLISH_NAME[lang]} line`
+              : `Read the ${ENGLISH_NAME[lang]} line aloud, slowly`
         }
       >
         <Text style={[s.playIcon, disabled && s.playTextDisabled]}>{isSpeaking ? "■" : "▶"}</Text>
@@ -133,6 +207,31 @@ const s = StyleSheet.create({
     lineHeight: type.displaySecondary * 1.62,
     fontWeight: "600",
   },
+
+  other: {
+    color: colour.text,
+    fontSize: type.displaySecondary,
+    // Tamil, Telugu, Bengali and Kannada all carry marks above and below the
+    // baseline, same as Devanagari. Give them the same room.
+    lineHeight: type.displaySecondary * 1.62,
+    fontWeight: "600",
+  },
+  extras: { gap: space.sm, borderTopWidth: 1, borderTopColor: colour.border, paddingTop: space.md },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  chip: {
+    minHeight: TAP_MIN - 12,
+    justifyContent: "center",
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colour.border,
+    backgroundColor: colour.surface,
+  },
+  chipPressed: { opacity: 0.8 },
+  chipActive: { borderColor: colour.action, backgroundColor: colour.surfaceRaised },
+  chipText: { color: colour.textFaint, fontSize: type.label, fontWeight: "600" },
+  chipTextActive: { color: colour.text },
+  caveat: { color: colour.textFaint, fontSize: type.small, lineHeight: 16 },
 
   controlRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   play: {

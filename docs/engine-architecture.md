@@ -1,10 +1,11 @@
-# Kavach engine — architecture decisions (v0.1.0)
+# Kavach engine — architecture decisions (v0.2.0)
 
-Status: built, 73/73 engine tests passing, corpus UNVERIFIED.
+Status: built, 155/155 engine tests passing, perception eval gated in CI, corpus UNVERIFIED.
 
-Last reconciled against the code on 4 September 2026. The engine has since
-gained on-disk session persistence and authentication; the "Deliberately
-absent" list below has been corrected to match.
+Last reconciled against the code on 4 October 2026. Since the first
+version of this document the engine has gained on-disk session persistence,
+authentication with key rotation, escalation guidance, officer records, the
+post-incident debrief, corpus review state, and print output.
 
 ## The governing rule
 
@@ -95,5 +96,8 @@ the session rather than a person, because PRD R1 forbids a login.
    accuracy.
 4. `corpus/meta.json` status → `counsel-signed-off`.
 
-Until then `npm run validate` warns on every file and every packet carries the
-unverified banner. Intentional.
+Until then `npm run validate` warns on every file, every packet carries the
+unverified banner, and `app`'s `npm run preflight` reports the corpus as a
+blocker and exits non-zero. That last one is the gate made mechanical: CI
+asserts it is the *only* blocker, so a second one appearing fails the build
+rather than hiding behind the first. Intentional, all of it.

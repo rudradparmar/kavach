@@ -25,8 +25,26 @@ export interface EvidenceManifest {
   sessionId: string;
   firstReceivedAt: string | null;
   lastReceivedAt: string | null;
-  chunks: Array<{ seq: number; receivedAt: string; sha256: string; bytes: number }>;
+  chunks: Array<{
+    seq: number;
+    receivedAt: string;
+    capturedAt: string | null;
+    sha256: string;
+    bytes: number;
+    mime: string;
+    latitude: number | null;
+    longitude: number | null;
+  }>;
   totalBytes: number;
+}
+
+/** One position fix as the service recorded it (PRD R4, R8). */
+export interface TrailFix {
+  seq: number;
+  /** Server receipt time. The device does not get to choose this. */
+  at: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface EvidenceHealth {
@@ -146,6 +164,24 @@ export async function getManifest(baseUrl: string, sessionId: string, token: str
   if (res.status === 404) return null;
   if (!res.ok) throw new EvidenceError(`Evidence service returned ${res.status}.`, "http", res.status);
   return (await res.json()) as EvidenceManifest;
+}
+
+/**
+ * The location trail (PRD R8).
+ *
+ * Derived by the service from the same manifest as the audio, so a fix cannot
+ * outlive the recording it was taken with, and one DELETE removes both.
+ */
+export async function getTrail(baseUrl: string, sessionId: string, token: string | null): Promise<TrailFix[]> {
+  const res = await req(
+    `${baseUrl}/session/${encodeURIComponent(sessionId)}/trail`,
+    { method: "GET", headers: authHeaders(token) },
+    TIMEOUT_MS.meta,
+  );
+  if (res.status === 404) return [];
+  if (!res.ok) throw new EvidenceError(`Evidence service returned ${res.status}.`, "http", res.status);
+  const body = (await res.json()) as { fixes?: TrailFix[] };
+  return Array.isArray(body.fixes) ? body.fixes : [];
 }
 
 export async function getEvidenceHealth(baseUrl: string): Promise<EvidenceHealth> {

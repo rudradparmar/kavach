@@ -1,5 +1,5 @@
 import type { Corpus } from "../corpus/loader.js";
-import type { GuidanceUpdate } from "../types.js";
+import type { EscalationGuidance, EscalationOption, GuidanceUpdate, QuotableLine } from "../types.js";
 
 export interface GuardViolation {
   kind: "ungrounded-citation" | "forbidden-phrase" | "missing-disclaimer" | "fallback-cites-law";
@@ -26,17 +26,23 @@ const FORBIDDEN = [
   { re: /\bhe (can'?t|cannot) do that\b|\bthey (can'?t|cannot) do that\b/i, why: "confrontational framing (PRD Design Principle 1)" },
 ];
 
-export function guard(corpus: Corpus, update: GuidanceUpdate): GuardViolation[] {
-  const violations: GuardViolation[] = [];
+/** Every language a quotable line carries, not just the launch pair (PRD R12). */
+function allLines(line: QuotableLine | null | undefined): string[] {
+  if (!line) return [];
+  return Object.values(line).filter((v): v is string => typeof v === "string");
+}
 
-  const surfaces: string[] = [
-    update.quotableLine?.en ?? "",
-    update.quotableLine?.hi ?? "",
-    update.documentNow ?? "",
-    ...update.doNotSay,
-    ...update.options.flatMap((o) => [o.label, o.rationale, o.tradeoff ?? ""]),
-    ...update.newFlags.map((f) => f.statement),
-  ];
+/**
+ * The citation and phrase checks, over any set of user-facing strings.
+ *
+ * Extracted so escalation drafts (PRD R9) go through exactly the same filter
+ * as live guidance. A complaint letter is read by an authority rather than
+ * said to an officer, but it is still corpus text the product put in front of
+ * a person as if it were reliable, and a section number invented there is
+ * wrong in the same way.
+ */
+export function scanText(corpus: Corpus, surfaces: string[], versionLabel: string): GuardViolation[] {
+  const violations: GuardViolation[] = [];
 
   const groundedSections = new Set<string>();
   for (const p of corpus.provisions.values()) {
@@ -50,7 +56,7 @@ export function guard(corpus: Corpus, update: GuidanceUpdate): GuardViolation[] 
       if (!groundedSections.has(cited)) {
         violations.push({
           kind: "ungrounded-citation",
-          detail: `"${m[0]}" is not in corpus v${update.corpusVersion} (normalised: ${cited})`,
+          detail: `"${m[0]}" is not in corpus v${versionLabel} (normalised: ${cited})`,
         });
       }
     }
@@ -60,6 +66,19 @@ export function guard(corpus: Corpus, update: GuidanceUpdate): GuardViolation[] 
       }
     }
   }
+  return violations;
+}
+
+export function guard(corpus: Corpus, update: GuidanceUpdate): GuardViolation[] {
+  const surfaces: string[] = [
+    ...allLines(update.quotableLine),
+    update.documentNow ?? "",
+    ...update.doNotSay,
+    ...update.options.flatMap((o) => [o.label, o.rationale, o.tradeoff ?? ""]),
+    ...update.newFlags.map((f) => f.statement),
+  ];
+
+  const violations = scanText(corpus, surfaces, update.corpusVersion);
 
   if (!update.disclaimer || update.disclaimer.trim().length === 0) {
     violations.push({ kind: "missing-disclaimer", detail: "PRD R7 requires a disclaimer on every answer screen" });
@@ -95,6 +114,62 @@ export function degradeToFallback(corpus: Corpus, update: GuidanceUpdate, violat
     changed: true,
     changeReason: `output guard tripped (${violations.map((v) => v.kind).join(", ")}) — degraded to universal safe actions`,
   };
+}
+
+/**
+ * PRD R9 — the same three checks, applied to escalation guidance.
+ *
+ * There is deliberately no "degrade to fallback" counterpart here. A tripped
+ * guard on a complaint draft means the corpus is wrong, and the honest
+ * response is to withhold that route and say so, not to hand over a
+ * de-escalated version of a legal document.
+ */
+export function guardEscalationOption(
+  corpus: Corpus,
+  option: EscalationOption,
+  corpusVersion: string,
+): GuardViolation[] {
+  const r = option.route;
+  return scanText(
+    corpus,
+    [
+      r.title, r.authority.name, r.authority.remit, r.deadline.text,
+      ...r.authority.howToReach, ...r.requiredContents, ...r.cautions,
+      option.draft,
+    ],
+    corpusVersion,
+  );
+}
+
+export interface EscalationGuardResult {
+  /** Routes that passed. Substituted in place of the original list. */
+  kept: EscalationOption[];
+  /** Route id -> why it was withheld. Surfaced, never swallowed. */
+  withheld: Array<{ routeId: string; violations: GuardViolation[] }>;
+  /** Everything found, including the disclaimer check. */
+  violations: GuardViolation[];
+}
+
+export function guardEscalation(corpus: Corpus, guidance: EscalationGuidance): EscalationGuardResult {
+  const kept: EscalationOption[] = [];
+  const withheld: EscalationGuardResult["withheld"] = [];
+  const violations: GuardViolation[] = [];
+
+  // Checked one route at a time so a bad route is withheld on its own rather
+  // than taking the others with it, and so the client can name which one.
+  for (const option of guidance.options) {
+    const found = guardEscalationOption(corpus, option, guidance.corpusVersion);
+    if (found.length === 0) kept.push(option);
+    else {
+      withheld.push({ routeId: option.route.id, violations: found });
+      violations.push(...found);
+    }
+  }
+
+  if (!guidance.disclaimer || guidance.disclaimer.trim().length === 0) {
+    violations.push({ kind: "missing-disclaimer", detail: "PRD R7 requires a disclaimer on every answer screen" });
+  }
+  return { kept, withheld, violations };
 }
 
 const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, "").replace(/^article/, "");

@@ -1,0 +1,20 @@
+{
+  "name": "kavach",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Rights-in-the-moment agent for India. Corpus is UNVERIFIED placeholder law — see README.md before deploying to anyone.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "for d in kavach-engine stt-service evidence-service app; do (cd \"$d\" && npm install) || exit 1; done",
+    "validate": "cd kavach-engine && npm run validate",
+    "test:engine": "cd kavach-engine && npm test",
+    "test:evidence": "cd evidence-service && npm test",
+    "test:stt": "cd stt-service && npm test",
+    "test:client": "cd app && npm run typecheck && npm run units",
+    "verify": "npm run validate && npm run test:engine && npm run eval && npm run test:evidence && npm run test:stt && npm run test:client",
+    "preflight": "cd app && npm run preflight --",
+    "eval": "cd kavach-engine && npm run eval && npm run eval -- --cases eval/holdout.json"
+  }
+}

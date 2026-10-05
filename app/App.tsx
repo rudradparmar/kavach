@@ -1,12 +1,19 @@
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { createSession, getHealth, sendTurn } from "./src/api/client";
+import { Linking, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import {
+  createSession, deleteOfficer, getDebrief, getEscalation, getHealth,
+  saveOfficer, sendTurn, submitDebriefAnswers, type OfficerFields,
+} from "./src/api/client";
 import { loadApiKey, saveApiKey } from "./src/api/auth";
 import { clearBaseUrl, defaultBaseUrl, loadBaseUrl, saveBaseUrl } from "./src/api/config";
-import type { GuardViolation, GuidanceUpdate, Health, RaisedFlag, Speaker } from "./src/api/types";
+import type {
+  DebriefResponse, EscalationResult, GuardViolation, GuidanceUpdate, Health,
+  OfficerRecord, RaisedFlag, Speaker,
+} from "./src/api/types";
 import { AlertSheet } from "./src/components/AlertSheet";
 import { getAlertLocation } from "./src/contacts/location";
+import { clearFixCache, currentFix } from "./src/contacts/fix";
 import { composeAlert } from "./src/contacts/message";
 import { sendViaData, sendViaSms, type DispatchResult } from "./src/contacts/send";
 import {
@@ -18,11 +25,15 @@ import {
 } from "./src/contacts/storage";
 import { EMPTY as EMPTY_CORPUS, loadCorpusCache, type CorpusCacheState } from "./src/offline/corpusCache";
 import { ContactsScreen } from "./src/screens/ContactsScreen";
+import { DebriefScreen } from "./src/screens/DebriefScreen";
+import { EscalationScreen } from "./src/screens/EscalationScreen";
+import { OfficerScreen } from "./src/screens/OfficerScreen";
 import { PacketScreen } from "./src/screens/PacketScreen";
 import { ScenarioCardScreen } from "./src/screens/ScenarioCardScreen";
 import { SessionScreen } from "./src/screens/SessionScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { StartScreen } from "./src/screens/StartScreen";
+import { isPanicUrl } from "./src/entry/panicLink";
 import { getSttHealth, transcribe } from "./src/stt/client";
 import { loadSttUrl } from "./src/stt/storage";
 import type { SttHealth, Transcript } from "./src/stt/types";
@@ -40,7 +51,16 @@ import { summarise, TurnTimer } from "./src/telemetry/latency";
 import { stopSpeaking, useSpeech } from "./src/tts/speech";
 import { colour, radius, space, type } from "./src/theme";
 
-type Route = "start" | "session" | "settings" | "scenario" | "packet" | "contacts";
+type Route =
+  | "start"
+  | "session"
+  | "settings"
+  | "scenario"
+  | "packet"
+  | "contacts"
+  | "officers"
+  | "escalation"
+  | "debrief";
 
 /**
  * Application shell.
@@ -53,6 +73,15 @@ type Route = "start" | "session" | "settings" | "scenario" | "packet" | "contact
  */
 export default function App() {
   const [route, setRoute] = useState<Route>("start");
+  /**
+   * Where "Done" goes from the officer screen.
+   *
+   * It is reachable from two places that mean different things: mid-encounter
+   * from the live screen, and afterwards from the packet. Sending someone
+   * back to the packet when they were standing at a checkpoint would be a bad
+   * moment to lose the guidance.
+   */
+  const [officerReturn, setOfficerReturn] = useState<"session" | "packet">("session");
 
   const [baseUrl, setBaseUrl] = useState<string>(defaultBaseUrl());
   const [sttUrl, setSttUrl] = useState<string | null>(null);
@@ -87,6 +116,20 @@ export default function App() {
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   /** The chunk handler runs off a timer and cannot see React state. */
   const sessionIdRef = useRef<string | null>(null);
+
+  /** PRD R11. Held here because both the live screen and the packet show it. */
+  const [officers, setOfficers] = useState<OfficerRecord[]>([]);
+  const [officerBusy, setOfficerBusy] = useState(false);
+  const [officerError, setOfficerError] = useState<string | null>(null);
+
+  /** PRD R9 and R13. Both are after-the-fact and both are loaded on demand. */
+  const [escalation, setEscalation] = useState<EscalationResult | null>(null);
+  const [escalationLoading, setEscalationLoading] = useState(false);
+  const [escalationError, setEscalationError] = useState<string | null>(null);
+  const [debrief, setDebrief] = useState<DebriefResponse | null>(null);
+  const [debriefLoading, setDebriefLoading] = useState(false);
+  const [debriefSaving, setDebriefSaving] = useState(false);
+  const [debriefError, setDebriefError] = useState<string | null>(null);
 
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -141,12 +184,21 @@ export default function App() {
     (chunk: CapturedChunk) => {
       const sid = sessionIdRef.current;
       if (!sid) return;
-      void enqueue(sid, chunk.seq, chunk.uri, {
-        capturedAt: chunk.capturedAt,
-        mime: chunk.mime,
-        latitude: null,
-        longitude: null,
-      })
+      // PRD R4 is "continuous audio **and periodic location**". The fix rides
+      // with the chunk rather than being uploaded separately, so it cannot
+      // outlive the audio it belongs to and one DELETE removes both.
+      // `currentFix` never prompts and never waits more than a couple of
+      // seconds: audio with no coordinates is worth far more than
+      // coordinates that cost audio.
+      void currentFix()
+        .then((fix) =>
+          enqueue(sid, chunk.seq, chunk.uri, {
+            capturedAt: chunk.capturedAt,
+            mime: chunk.mime,
+            latitude: fix?.latitude ?? null,
+            longitude: fix?.longitude ?? null,
+          }),
+        )
         .then(() => drain(evidenceUrl, sessionTokenRef.current, sid))
         .then((report) => {
           if (report.uploaded > 0 || report.stoppedBecause) void refreshEvidence(sid);
@@ -170,6 +222,7 @@ export default function App() {
     stopSpeaking();
   }, [update?.turnIndex, update?.scenarioId]);
 
+  const [prefsReady, setPrefsReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
     Promise.all([loadContacts(), loadUserName(), loadApiKey()]).then(([c, n, k]) => {
@@ -177,6 +230,7 @@ export default function App() {
       setContacts(c);
       setUserName(n);
       setApiKey(k);
+      setPrefsReady(true);
     });
     return () => {
       cancelled = true;
@@ -261,6 +315,13 @@ export default function App() {
       setEvidenceSafe(0);
       setEvidencePending(0);
       setEvidenceError(null);
+      setOfficers([]);
+      setOfficerError(null);
+      setEscalation(null);
+      setDebrief(null);
+      // A cached position from a previous session must never land on new
+      // audio: the packet would place this encounter where the last one was.
+      clearFixCache();
       // Capture starts with the session, not on a separate tap. R4 is
       // "continuous audio from session start"; an opt-in would mean the
       // evidence is missing exactly when someone forgot to press it.
@@ -279,6 +340,36 @@ export default function App() {
       setStarting(false);
     }
   }, [baseUrl, apiKey, capture]);
+
+  /**
+   * PRD R1: one tap starts a session. The home-screen shortcut opens
+   * `kavach://start` (app/plugins/withPanicShortcut.js), and the session
+   * starts as soon as the engine address and the instance key have loaded —
+   * no START button between the tap and the recording. A link that arrives
+   * during a live session is ignored rather than starting a second one over
+   * the first. From anywhere else — including an unshared packet from an
+   * earlier encounter — it starts: a second encounter is the emergency, and
+   * the earlier session stays on the engine for its retention window.
+   */
+  const panicPending = useRef(false);
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      if (isPanicUrl(url)) panicPending.current = true;
+    }).catch(() => {});
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      if (isPanicUrl(url)) panicPending.current = true;
+      setPanicTick((n) => n + 1);
+    });
+    return () => sub.remove();
+  }, []);
+  const [panicTick, setPanicTick] = useState(0);
+  useEffect(() => {
+    if (!panicPending.current) return;
+    if (!baseUrlReady || !prefsReady || starting) return;
+    panicPending.current = false;
+    if (route === "session") return;
+    void start();
+  }, [panicTick, baseUrlReady, prefsReady, starting, route, start]);
 
   /**
    * The single path a turn takes, whatever produced it.
@@ -408,6 +499,10 @@ export default function App() {
     setTimings([]);
     setTurnCount(0);
     setTurnError(null);
+    setOfficers([]);
+    setEscalation(null);
+    setDebrief(null);
+    clearFixCache();
     void checkHealth(baseUrl, sttUrl);
   }, [baseUrl, sttUrl, checkHealth]);
 
@@ -502,6 +597,89 @@ export default function App() {
     };
   }, [sessionId, sessionToken, evidenceUrl, refreshEvidence]);
 
+  /* --- officer details (PRD R11) ---------------------------------- */
+
+  const handleSaveOfficer = useCallback(
+    async (fields: OfficerFields) => {
+      if (!sessionId) return;
+      setOfficerBusy(true);
+      setOfficerError(null);
+      try {
+        const r = await saveOfficer(baseUrl, sessionId, fields, sessionToken);
+        setOfficers(r.officers);
+      } catch (e) {
+        setOfficerError((e as Error).message);
+      } finally {
+        setOfficerBusy(false);
+      }
+    },
+    [baseUrl, sessionId, sessionToken],
+  );
+
+  const handleDeleteOfficer = useCallback(
+    async (officerId: string) => {
+      if (!sessionId) return;
+      setOfficerBusy(true);
+      setOfficerError(null);
+      try {
+        const r = await deleteOfficer(baseUrl, sessionId, officerId, sessionToken);
+        setOfficers(r.officers);
+      } catch (e) {
+        setOfficerError((e as Error).message);
+      } finally {
+        setOfficerBusy(false);
+      }
+    },
+    [baseUrl, sessionId, sessionToken],
+  );
+
+  /* --- escalation and debrief (PRD R9, R13) ------------------------ */
+
+  const loadEscalation = useCallback(async () => {
+    if (!sessionId) return;
+    setEscalationLoading(true);
+    setEscalationError(null);
+    try {
+      // The device's own zone, so the dates in a complaint draft are the ones
+      // the complainant would write. A letter dated in UTC is simply wrong.
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setEscalation(await getEscalation(baseUrl, sessionId, sessionToken, tz));
+    } catch (e) {
+      setEscalationError((e as Error).message);
+    } finally {
+      setEscalationLoading(false);
+    }
+  }, [baseUrl, sessionId, sessionToken]);
+
+  const loadDebrief = useCallback(async () => {
+    if (!sessionId) return;
+    setDebriefLoading(true);
+    setDebriefError(null);
+    try {
+      setDebrief(await getDebrief(baseUrl, sessionId, sessionToken));
+    } catch (e) {
+      setDebriefError((e as Error).message);
+    } finally {
+      setDebriefLoading(false);
+    }
+  }, [baseUrl, sessionId, sessionToken]);
+
+  const handleSubmitDebrief = useCallback(
+    async (answers: Record<string, string>) => {
+      if (!sessionId) return;
+      setDebriefSaving(true);
+      setDebriefError(null);
+      try {
+        setDebrief(await submitDebriefAnswers(baseUrl, sessionId, answers, sessionToken));
+      } catch (e) {
+        setDebriefError((e as Error).message);
+      } finally {
+        setDebriefSaving(false);
+      }
+    },
+    [baseUrl, sessionId, sessionToken],
+  );
+
   const handleSaveContacts = useCallback(async (next: TrustedContact[]) => {
     setContacts(next);
     await saveContacts(next);
@@ -527,6 +705,16 @@ export default function App() {
 
   const latency: LatencySummary = summarise(timings);
   const lastTiming = timings.length > 0 ? (timings[timings.length - 1] ?? null) : null;
+
+  /**
+   * The scenario the current update names, from the cached corpus.
+   *
+   * A GuidanceUpdate does not carry per-language review state — that is a
+   * property of the corpus, not of the turn — so the card gets it from here.
+   */
+  const liveScenario = update?.scenarioId
+    ? (corpus.payload?.scenarios.find((sc) => sc.id === update.scenarioId) ?? null)
+    : null;
 
   const openScenario = scenarioId
     ? (corpus.payload?.scenarios.find((sc) => sc.id === scenarioId) ?? null)
@@ -559,6 +747,12 @@ export default function App() {
           <SessionScreen
             sessionId={sessionId}
             update={update}
+            translationStatus={liveScenario?.translationStatus}
+            officerCount={officers.length}
+            onRecordOfficer={() => {
+              setOfficerReturn("session");
+              setRoute("officers");
+            }}
             allFlags={flags}
             transcript={transcript}
             evidence={{
@@ -567,12 +761,14 @@ export default function App() {
               pendingCount: evidencePending,
               serviceReachable: evidenceHealth !== null,
               error: evidenceError,
+              background: capture.background,
             }}
             speech={speech}
             timing={lastTiming}
             latency={latency}
             turnCount={turnCount}
             corpusStatus={health?.corpusStatus ?? "unverified"}
+            corpusReview={health?.corpusReview ?? null}
             corpusVersion={health?.corpusVersion ?? null}
             speaker={speaker}
             onSpeakerChange={setSpeaker}
@@ -599,11 +795,53 @@ export default function App() {
           onSaveName={handleSaveName}
           onClose={() => setRoute(sessionId ? "session" : "start")}
         />
+      ) : route === "officers" && sessionId && corpus.payload ? (
+        <OfficerScreen
+          intro={corpus.payload.officerCapture.intro}
+          prompts={corpus.payload.officerCapture.fields}
+          officers={officers}
+          saving={officerBusy}
+          error={officerError}
+          onSave={handleSaveOfficer}
+          onDelete={handleDeleteOfficer}
+          onClose={() => setRoute(officerReturn)}
+        />
+      ) : route === "escalation" && sessionId ? (
+        <EscalationScreen
+          result={escalation}
+          loading={escalationLoading}
+          error={escalationError}
+          onRetry={() => void loadEscalation()}
+          onClose={() => setRoute("packet")}
+        />
+      ) : route === "debrief" && sessionId ? (
+        <DebriefScreen
+          data={debrief}
+          loading={debriefLoading}
+          saving={debriefSaving}
+          error={debriefError}
+          onSubmit={handleSubmitDebrief}
+          onRetry={() => void loadDebrief()}
+          onClose={() => setRoute("packet")}
+        />
       ) : route === "packet" && sessionId ? (
         <PacketScreen
           baseUrl={baseUrl}
+          evidenceUrl={evidenceUrl}
           sessionId={sessionId}
           sessionToken={sessionToken}
+          onOpenOfficers={() => {
+            setOfficerReturn("packet");
+            setRoute("officers");
+          }}
+          onOpenEscalation={() => {
+            setRoute("escalation");
+            if (!escalation) void loadEscalation();
+          }}
+          onOpenDebrief={() => {
+            setRoute("debrief");
+            if (!debrief) void loadDebrief();
+          }}
           onDeleteEvidence={async () => {
             await discard(sessionId);
             await deleteEvidence(evidenceUrl, sessionId, sessionToken);

@@ -74,7 +74,11 @@ export function ScenarioCardScreen({
           </Pressable>
         </View>
 
-        <QuotableLineCard line={scenario.quotableLine} speech={speech} />
+        <QuotableLineCard
+          line={scenario.quotableLine}
+          speech={speech}
+          translationStatus={scenario.translationStatus}
+        />
 
         {scenario.doNotSay.length > 0 ? (
           <Section title="DO NOT SAY">

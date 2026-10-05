@@ -16,7 +16,12 @@ import { buildOptions } from "../../kavach-engine/src/engine/options.js";
 import { normalise, siblingUrl } from "../src/api/url";
 import { composeAlert, isDialable, mapsUrl, normalisePhone } from "../src/contacts/message";
 import { staticOptions } from "../src/offline/staticOptions";
-import { matchAvailable, primarySubtag, unavailableReason, type SpeechLang } from "../src/tts/languages";
+import { isPanicUrl, PANIC_URL } from "../src/entry/panicLink";
+import { backgroundRecordingAvailable } from "../src/evidence/background";
+import {
+  BCP47, ENDONYM, ENGLISH_NAME, matchAvailable, primarySubtag, SPEECH_LANGS,
+  SUBTAGS, unavailableReason, type SpeechLang,
+} from "../src/tts/languages";
 import { percentile, summarise, withinBudget, type TurnTiming } from "../src/telemetry/latency";
 
 const engineCorpus = loadCorpus();
@@ -393,6 +398,122 @@ t("garbage in gives a usable localhost address, not a throw", () => {
   // A session must never fail to start because a stored address is malformed.
   eq(siblingUrl("not a url", STT), "http://localhost:8788", "stt");
   eq(siblingUrl("", EVIDENCE), "http://localhost:8789", "evidence");
+});
+
+/* ------------------------------------------------------------------ */
+group("language registry parity with the corpus (R12)");
+
+// The client keeps its own copy of the language table because it has to know
+// what it can speak before it has ever reached the engine — offline, on first
+// launch, with a cached corpus or none. A duplicate is only safe while
+// something fails when the two drift. This is that something.
+
+t("the client speaks exactly the languages the corpus advertises", () => {
+  const corpusCodes = engineCorpus.languages.languages.map((l) => l.code).sort();
+  const clientCodes = [...SPEECH_LANGS].sort();
+  eq(clientCodes.join(","), corpusCodes.join(","), "language sets differ");
+});
+
+t("every language has a BCP-47 tag, an endonym and an English name", () => {
+  for (const lang of SPEECH_LANGS) {
+    assert(BCP47[lang]?.includes("-"), `${lang} has no region-qualified tag`);
+    assert(ENDONYM[lang]?.length > 0, `${lang} has no endonym`);
+    assert(ENGLISH_NAME[lang]?.length > 0, `${lang} has no English name`);
+  }
+});
+
+t("the client's subtags match the corpus registry", () => {
+  for (const entry of engineCorpus.languages.languages) {
+    const mine = SUBTAGS[entry.code as SpeechLang];
+    assert(mine !== undefined, `client has no subtags for ${entry.code}`);
+    for (const sub of entry.subtags) {
+      assert(mine.includes(sub), `corpus lists subtag "${sub}" for ${entry.code}, client does not`);
+    }
+  }
+});
+
+t("each language's own tag matches its own subtags and nothing else's", () => {
+  // The failure this catches is a copy-paste in the table: a language whose
+  // BCP-47 tag points at another language's voice. The device would then
+  // speak, fluently, in the wrong language, and the user would repeat it.
+  for (const lang of SPEECH_LANGS) {
+    const matched = matchAvailable([BCP47[lang]]);
+    assert(matched.has(lang), `${lang} does not match its own tag ${BCP47[lang]}`);
+    eq(matched.size, 1, `${BCP47[lang]} matched more than ${lang}`);
+  }
+});
+
+t("a device with no voice for a language disables it and says which", () => {
+  // The silent failure: Android hands Devanagari to an English engine and
+  // produces confident gibberish, which the user says to an officer.
+  const onlyEnglish = matchAvailable(["en-IN"]);
+  for (const lang of SPEECH_LANGS) {
+    const reason = unavailableReason(lang, onlyEnglish);
+    if (lang === "en") {
+      eq(reason, null, "English was disabled on a device that has it");
+    } else {
+      assert(reason !== null, `${lang} was left enabled with no voice`);
+      assert(reason.includes(ENGLISH_NAME[lang]), `the reason for ${lang} does not name the language`);
+    }
+  }
+});
+
+/* ------------------------------------------------------------------ */
+group("corpus content the client renders (R9, R11, R13)");
+
+t("every officer prompt names a field the client can send", () => {
+  // The client builds its payload from these field names. One that does not
+  // exist on the record is a form field whose contents go nowhere.
+  const allowed = new Set(["name", "buckleNumber", "rank", "station", "vehicleNumber", "unit", "description"]);
+  for (const f of engineCorpus.officerCapture.fields) {
+    assert(allowed.has(f.field), `unknown officer field "${f.field}"`);
+    assert(f.label.length > 0 && f.why.length > 0, `${f.field} is missing a label or a reason`);
+  }
+});
+
+t("the buckle number is prompted first", () => {
+  const first = [...engineCorpus.officerCapture.fields].sort((a, b) => a.priority - b.priority)[0];
+  eq(first?.field, "buckleNumber", "the most useful identifier is not asked for first");
+});
+
+t("every choice question offers choices the UI can render", () => {
+  for (const q of engineCorpus.debrief.questions) {
+    if (q.kind === "choice") {
+      assert((q.choices?.length ?? 0) >= 2, `${q.id} is a choice with fewer than two options`);
+    }
+  }
+});
+
+t("every escalation route has something for each section the screen draws", () => {
+  for (const r of engineCorpus.escalation.routes) {
+    assert(r.authority.name.length > 0, `${r.id} has no authority`);
+    assert(r.authority.howToReach.length > 0, `${r.id} has no way in`);
+    assert(r.deadline.text.length > 0, `${r.id} has no deadline text`);
+    assert(r.requiredContents.length > 0, `${r.id} lists no required contents`);
+    assert(r.cautions.length > 0, `${r.id} has no cautions`);
+    assert(r.draftTemplate.length > 0, `${r.id} has no draft`);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Native entry and background capture (UNTESTED ON A DEVICE)           */
+/* ------------------------------------------------------------------ */
+console.log("\nnative entry and background capture");
+
+t("the shortcut URL starts a session, and only it does", () => {
+  for (const u of [PANIC_URL, "kavach://start/", "kavach:///start", "KAVACH://Start?from=shortcut"]) {
+    assert(isPanicUrl(u), `${u} should start`);
+  }
+  for (const u of [null, "", "kavach://", "kavach://settings", "kavach://startle", "https://kavach.example/start", "exp://192.168.1.2:8081"]) {
+    assert(!isPanicUrl(u), `${u} must not start a session`);
+  }
+});
+
+t("background recording is promised only by a real build, never by Expo Go", () => {
+  assert(!backgroundRecordingAvailable("storeClient"), "Expo Go carries no foreground service");
+  assert(!backgroundRecordingAvailable(undefined), "unknown environment must not promise it");
+  assert(backgroundRecordingAvailable("standalone"), "an EAS build carries it");
+  assert(backgroundRecordingAvailable("bare"), "a prebuilt project carries it");
 });
 
 /* ------------------------------------------------------------------ */

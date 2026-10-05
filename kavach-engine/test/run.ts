@@ -8,7 +8,12 @@ import { MockProvider } from "../src/llm/mock.js";
 import { buildOptions } from "../src/engine/options.js";
 import { guard } from "../src/engine/guard.js";
 import { applyObservation, evaluate, initialFacts } from "../src/engine/facts.js";
-import { buildPacket, packetToMarkdown } from "../src/engine/summary.js";
+import { buildPacket, escalationToMarkdown, packetToHtml, packetToMarkdown } from "../src/engine/summary.js";
+import { buildEscalation, renderDraft } from "../src/engine/escalation.js";
+import { guardEscalation } from "../src/engine/guard.js";
+import { debriefState, debriefWindow, submitDebrief } from "../src/engine/debrief.js";
+import { isEmptyOfficer, removeOfficer, upsertOfficer } from "../src/engine/officers.js";
+import { reviewCorpus } from "../src/engine/review.js";
 import { SessionStore } from "../src/server/store.js";
 import { startRetentionSweep } from "../../shared/lifecycle.js";
 import { clientKey, createRateLimiter } from "../../shared/ratelimit.js";
@@ -243,12 +248,55 @@ const POLARITY: Array<[string, string, string]> = [
   ["Here is the written notice.", "noticeUnderS35Given", "yes"],
   ["The crowd was not peaceful.", "assemblyPeaceful", "no"],
   ["We are sitting quietly, it is peaceful.", "assemblyPeaceful", "yes"],
+  ["Nobody was violent.", "assemblyPeaceful", "yes"],
+  ["Some of them were violent.", "assemblyPeaceful", "no"],
   // A licence left at home is not the same fact as holding no licence.
   ["I forgot my licence at home.", "licenceCarried", "no"],
   ["लाइसेंस घर पर रह गया।", "licenceCarried", "no"],
   ["I have a valid licence.", "licenceHeld", "yes"],
   ["I don't have a licence at all.", "licenceHeld", "no"],
+  // "not wearing a helmet" contains "wearing a helmet" (found by npm run eval).
+  ["I am not wearing a helmet today.", "helmetWorn", "no"],
+  ["I didn't wear my helmet.", "helmetWorn", "no"],
+  ["बिना हेलमेट के", "helmetWorn", "no"],
+  ["You are not being arrested.", "arrestAsserted", "no"],
+  ["You are being arrested.", "arrestAsserted", "yes"],
+  // Latin negation of the arrest cue (previously recorded "yes").
+  ["usne giraftar nahi kaha", "arrestAsserted", "no"],
+  // groundsGiven: a question is not an answer; only a statement is.
+  ["They won't tell me why I am being arrested.", "groundsGiven", "no"],
+  ["He arrested me without giving any reason.", "groundsGiven", "no"],
+  ["kaaran nahi bata rahe", "groundsGiven", "no"],
+  ["You are being arrested for obstruction.", "groundsGiven", "yes"],
+  // relativeInformed: a statement beats a request, and the user's own
+  // inaction is not the police's.
+  ["They are not letting me call my family.", "relativeInformed", "no"],
+  ["Nobody has informed my family.", "relativeInformed", "no"],
+  ["घर वालों को किसी ने नहीं बताया", "relativeInformed", "no"],
+  ["I informed my family.", "relativeInformed", "yes"],
+  ["My father has been told.", "relativeInformed", "yes"],
+  ["घर पर बता दिया", "relativeInformed", "yes"],
 ];
+
+// Questions and requests: the fact must stay unestablished. Recording "no"
+// here fired an UNLAWFUL flag off a question.
+const SHIELDED: Array<[string, string]> = [
+  ["Why am I being arrested?", "groundsGiven"],
+  ["On what grounds?", "groundsGiven"],
+  ["किस आधार पर?", "groundsGiven"],
+  ["Let me inform my family.", "relativeInformed"],
+  ["Can I call my mother?", "relativeInformed"],
+  ["I haven't told my family yet.", "relativeInformed"],
+  ["ghar par batana hai", "relativeInformed"],
+  ["फ़ोन करने दो", "relativeInformed"],
+];
+
+for (const [text, fact] of SHIELDED) {
+  await t(`${fact} stays unknown — ${JSON.stringify(text)}`, async () => {
+    const got = await extractOne(text, fact);
+    assert(got === undefined, `got ${JSON.stringify(got)}`);
+  });
+}
 
 for (const [text, fact, expected] of POLARITY) {
   await t(`${fact} = ${expected} — ${JSON.stringify(text)}`, async () => {
@@ -265,6 +313,60 @@ await t("a suppressed UNLAWFUL flag now fires: search of a woman, no female offi
     s.state.flags.some((f) => f.ruleId === "female-search-no-female-officer"),
     `flags raised: ${JSON.stringify(s.state.flags.map((f) => f.ruleId))}`,
   );
+});
+
+await t("asking for the grounds does not fire arrest-without-grounds", async () => {
+  const s = new Session(new MockProvider());
+  await s.ingest("You are under arrest.", "officer");
+  await s.ingest("Why am I being arrested? Let me inform my family.", "user");
+  const ids = s.state.flags.map((f) => f.ruleId);
+  assert(!ids.includes("arrest-without-grounds"), `flags raised: ${JSON.stringify(ids)}`);
+  assert(!ids.includes("arrest-relative-not-informed"), `flags raised: ${JSON.stringify(ids)}`);
+});
+
+await t("an explicit refusal still fires both arrest flags", async () => {
+  const s = new Session(new MockProvider());
+  await s.ingest("You are under arrest.", "officer");
+  await s.ingest("They won't tell me the reason and are not letting me call my family.", "user");
+  const ids = s.state.flags.map((f) => f.ruleId);
+  assert(ids.includes("arrest-without-grounds"), `flags raised: ${JSON.stringify(ids)}`);
+  assert(ids.includes("arrest-relative-not-informed"), `flags raised: ${JSON.stringify(ids)}`);
+});
+
+await t("a negated Latin arrest cue does not classify as an arrest", async () => {
+  const s = new Session(new MockProvider());
+  const r = await s.ingest("usne giraftar nahi kaha, bas thane chalo bola", "user");
+  assert(r.update.scenarioId !== "arrest-now", `classified as ${r.update.scenarioId}`);
+});
+
+console.log("\nlive provider configuration");
+
+await t("the Anthropic model comes from KAVACH_ANTHROPIC_MODEL, not the code", async () => {
+  const { AnthropicProvider, DEFAULT_ANTHROPIC_MODEL } = await import("../src/llm/anthropic.js");
+  const before = process.env.KAVACH_ANTHROPIC_MODEL;
+  try {
+    delete process.env.KAVACH_ANTHROPIC_MODEL;
+    assert(new AnthropicProvider("test-key").name === `anthropic:${DEFAULT_ANTHROPIC_MODEL}`, "default not used");
+    process.env.KAVACH_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+    assert(new AnthropicProvider("test-key").name === "anthropic:claude-haiku-4-5-20251001", "env not read");
+  } finally {
+    if (before === undefined) delete process.env.KAVACH_ANTHROPIC_MODEL;
+    else process.env.KAVACH_ANTHROPIC_MODEL = before;
+  }
+});
+
+await t("an unknown provider name is refused, not defaulted", async () => {
+  const { makeProviderAsync } = await import("../src/llm/anthropic.js");
+  const before = process.env.KAVACH_LLM_PROVIDER;
+  process.env.KAVACH_LLM_PROVIDER = "antropic";
+  try {
+    let threw = false;
+    try { await makeProviderAsync(); } catch { threw = true; }
+    assert(threw, "a typo fell through to a provider");
+  } finally {
+    if (before === undefined) delete process.env.KAVACH_LLM_PROVIDER;
+    else process.env.KAVACH_LLM_PROVIDER = before;
+  }
 });
 
 /* ------------------------------------------------------------------ */
@@ -608,7 +710,9 @@ console.log("\nauth");
 const authConfig: AuthConfig = {
   enabled: true,
   apiKey: "test-instance-key",
+  acceptedApiKeys: ["test-instance-key"],
   sessionSecret: "test-session-secret",
+  acceptedSessionSecrets: ["test-session-secret"],
   ttlMs: 60_000,
   source: "env",
 };
@@ -696,12 +800,511 @@ await t("the instance key still opens any session, for operations", () => {
   assert(requireSession(authConfig, asReq(authConfig.apiKey), SID_B) === null, "ops key locked out");
 });
 
+await t("a rotated instance key keeps the old one working", () => {
+  // PRD R1 forbids a login, so there is no account to push a new key to.
+  // Without an overlap, rotating locks every installed app out at the same
+  // instant — and the instant anyone notices is a police stop.
+  const rotating: AuthConfig = {
+    ...authConfig,
+    apiKey: "new-instance-key",
+    acceptedApiKeys: ["new-instance-key", "test-instance-key"],
+  };
+  assert(requireApiKey(rotating, asReq("new-instance-key")) === null, "the new key was refused");
+  assert(requireApiKey(rotating, asReq("test-instance-key")) === null, "the retired key was refused mid-rotation");
+  assert(requireApiKey(rotating, asReq("never-a-key"))?.status === 403, "an unrelated key was accepted");
+});
+
+await t("a retired key stops working once it leaves the list", () => {
+  const after: AuthConfig = { ...authConfig, apiKey: "new-instance-key", acceptedApiKeys: ["new-instance-key"] };
+  assert(requireApiKey(after, asReq("test-instance-key"))?.status === 403, "the retired key still opens the door");
+});
+
+await t("a live session token survives a signing-secret rotation", () => {
+  // These live for hours and are held by a phone mid-encounter. Rotating
+  // without an overlap stops the audio uploading for everyone at once.
+  const before = mintSessionToken(authConfig, SID_A);
+  const rotating: AuthConfig = {
+    ...authConfig,
+    sessionSecret: "new-session-secret",
+    acceptedSessionSecrets: ["new-session-secret", "test-session-secret"],
+  };
+  assert(verifySessionToken(rotating, before).ok, "a token minted before the rotation was refused");
+  const after = mintSessionToken(rotating, SID_A);
+  assert(verifySessionToken(rotating, after).ok, "a token minted after the rotation was refused");
+  // And the new secret alone must not verify the old token, or retiring the
+  // old secret would be a no-op.
+  const done: AuthConfig = { ...rotating, acceptedSessionSecrets: ["new-session-secret"] };
+  assert(!verifySessionToken(done, before).ok, "a retired secret still verified its tokens");
+});
+
 await t("disabling auth is total and explicit", () => {
   // KAVACH_AUTH=0 exists so the previous behaviour is reachable deliberately
   // rather than by forgetting to set something.
   const off: AuthConfig = { ...authConfig, enabled: false };
   assert(requireApiKey(off, asReq(null)) === null, "api key still enforced while disabled");
   assert(requireSession(off, asReq(null), SID_A) === null, "session still enforced while disabled");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R12 — language expansion                                         */
+/* ------------------------------------------------------------------ */
+
+console.log("\nlanguages (R12)");
+
+await t("every scenario carries a line in every advertised language", () => {
+  const codes = corpus.languages.languages.map((l) => l.code);
+  for (const [id, sc] of corpus.scenarios) {
+    for (const code of codes) {
+      const line = sc.quotableLine[code];
+      assert(typeof line === "string" && line.trim().length > 0, `${id} has no ${code} line`);
+    }
+  }
+  for (const code of codes) {
+    const line = corpus.fallback.quotableLine[code];
+    assert(typeof line === "string" && line.trim().length > 0, `fallback has no ${code} line`);
+  }
+});
+
+await t("no scenario carries a line in a language the registry does not advertise", () => {
+  // The reverse of the check above, and the one that actually bites: the app
+  // decides which buttons to draw from the registry, so a line for a language
+  // that is not in it is content no user can ever reach.
+  const codes = new Set(corpus.languages.languages.map((l) => l.code));
+  for (const [id, sc] of corpus.scenarios) {
+    for (const key of Object.keys(sc.quotableLine)) {
+      assert(codes.has(key as never), `${id} has a ${key} line and the registry has no ${key}`);
+    }
+  }
+});
+
+await t("no language claims counsel review inside an unverified corpus", () => {
+  for (const [id, sc] of corpus.scenarios) {
+    for (const [code, status] of Object.entries(sc.translationStatus ?? {})) {
+      assert(
+        status !== "counsel-reviewed" || corpus.meta.status === "counsel-signed-off",
+        `${id}.${code} claims counsel-reviewed while the corpus is ${corpus.meta.status}`,
+      );
+    }
+  }
+});
+
+await t("every scenario is reachable from speech in every script", () => {
+  // The defect the Hindi pass found, generalised. Cues in one script only
+  // means the scenario is unreachable for everyone who speaks another —
+  // silently, on every turn, with no error anywhere.
+  const ranges: Record<string, RegExp> = {
+    Latin: /[A-Za-z]/, Devanagari: /[\u0900-\u097F]/, Bengali: /[\u0980-\u09FF]/,
+    Tamil: /[\u0B80-\u0BFF]/, Telugu: /[\u0C00-\u0C7F]/, Kannada: /[\u0C80-\u0CFF]/,
+  };
+  const scripts = [...new Set(corpus.languages.languages.map((l) => l.script))];
+  for (const [id, sc] of corpus.scenarios) {
+    for (const script of scripts) {
+      const re = ranges[script];
+      assert(re !== undefined, `no range known for script ${script}`);
+      assert(sc.classifierCues.some((c) => re!.test(c)), `${id} has no ${script} cue`);
+    }
+  }
+});
+
+await t("classifier cue counts stay balanced across scenarios", () => {
+  // Cue count is a thumb on the scale: a cue matched anywhere in history
+  // scores, so a scenario with far more cues drifts upward as a session gets
+  // longer, whatever was actually said. Adding a language unevenly is how
+  // that happens by accident.
+  const counts = [...corpus.scenarios.values()].map((s) => s.classifierCues.length);
+  const spread = Math.max(...counts) - Math.min(...counts);
+  assert(spread <= 8, `cue counts spread by ${spread} (${Math.min(...counts)}–${Math.max(...counts)})`);
+});
+
+await t("the guard scans every language, not just the launch pair", () => {
+  // A forbidden phrase hidden in the seventh language would otherwise ship.
+  const v = guard(corpus, baseUpdate({
+    quotableLine: { en: "ok", hi: "ok", ta: "please refuse to comply" },
+  }));
+  assert(v.some((x) => x.kind === "forbidden-phrase"), "guard ignored a non-launch language");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R11 — officer detail capture                                     */
+/* ------------------------------------------------------------------ */
+
+console.log("\nofficer capture (R11)");
+
+const officerSession = () => new Session(new MockProvider(), { corpus }).state;
+
+await t("a partial record is accepted", () => {
+  // A person doing this is standing in front of the officer. A form that
+  // demands completeness gets abandoned, and the buckle number alone is
+  // exactly the record that turns out to matter.
+  const st = officerSession();
+  const rec = upsertOfficer(st, { buckleNumber: "1234" });
+  assert(rec.buckleNumber === "1234", "buckle not stored");
+  assert(rec.name === null, "absent field should be null, not empty string");
+  assert(st.officers.length === 1, "not appended to the session");
+});
+
+await t("an entirely empty submission is refused by the caller's check", () => {
+  assert(isEmptyOfficer({ name: "  ", buckleNumber: "" }), "whitespace counted as content");
+  assert(!isEmptyOfficer({ station: "MG Road" }), "real content counted as empty");
+});
+
+await t("a correction touches only the fields it sends", () => {
+  const st = officerSession();
+  const rec = upsertOfficer(st, { buckleNumber: "1234", station: "MG Road" });
+  upsertOfficer(st, { buckleNumber: "1243" }, rec.id);
+  assert(st.officers[0]!.buckleNumber === "1243", "correction not applied");
+  assert(st.officers[0]!.station === "MG Road", "an untouched field was blanked");
+  assert(st.officers.length === 1, "correction created a second record");
+});
+
+await t("officer records are user-sourced and say so", () => {
+  const st = officerSession();
+  const rec = upsertOfficer(st, { name: "R. Sharma" });
+  assert(rec.source === "user", "source is not marked user");
+});
+
+await t("a record can be removed", () => {
+  const st = officerSession();
+  const rec = upsertOfficer(st, { buckleNumber: "1" });
+  assert(removeOfficer(st, rec.id), "remove returned false");
+  assert(st.officers.length === 0, "record survived removal");
+  assert(!removeOfficer(st, rec.id), "removing twice reported success");
+});
+
+await t("officer details reach the packet, labelled as entered", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  upsertOfficer(s.state, { buckleNumber: "4417", name: "K. Rao" });
+  const packet = await buildPacket(s.state, new MockProvider());
+  assert(packet.officers.length === 1, "officer missing from packet");
+  const md = packetToMarkdown(packet);
+  assert(md.includes("4417"), "buckle number not rendered");
+  assert(md.includes("Nothing in this section is inferred"), "provenance not stated");
+});
+
+await t("an empty officer section says nobody entered one, not that none exists", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  const md = packetToMarkdown(await buildPacket(s.state, new MockProvider()));
+  assert(md.includes("did not enter one"), "empty section is ambiguous");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R9 — escalation guidance                                         */
+/* ------------------------------------------------------------------ */
+
+console.log("\nescalation (R9)");
+
+const escalated = async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Give me two thousand rupees and I will let you go", "officer");
+  await s.ingest("No receipt, just cash", "officer");
+  return s;
+};
+
+await t("a matched scenario brings its route to the front", async () => {
+  const s = await escalated();
+  const g = buildEscalation(corpus, s.state);
+  assert(g.options.length > 0, "no routes offered");
+  assert(g.options[0]!.route.id === "bribe-demand", `first route was ${g.options[0]!.route.id}`);
+});
+
+await t("a universal route is always offered", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  const g = buildEscalation(corpus, st);
+  assert(g.options.length > 0, "a session that matched nothing was offered nothing");
+  assert(g.options.every((o) => o.route.appliesToScenarioIds.length === 0), "a specific route matched an empty session");
+});
+
+await t("the draft never contains an unfilled token", async () => {
+  const s = await escalated();
+  const g = buildEscalation(corpus, s.state);
+  for (const o of g.options) {
+    assert(!/\{\{[a-zA-Z]+\}\}/.test(o.draft), `${o.route.id} left a raw placeholder in the draft`);
+  }
+});
+
+await t("what the engine cannot fill is reported, not invented", async () => {
+  const s = await escalated();
+  const g = buildEscalation(corpus, s.state);
+  for (const o of g.options) {
+    // The user's own name and their account of what happened are structurally
+    // unfillable. If either ever stops being reported as unfilled, something
+    // has started composing on their behalf.
+    assert(o.unfilled.includes("complainantName"), `${o.route.id} claims to know the complainant's name`);
+    assert(o.unfilled.includes("whatHappened"), `${o.route.id} filled in an account of the incident`);
+  }
+});
+
+await t("officer details flow into the draft", async () => {
+  const s = await escalated();
+  upsertOfficer(s.state, { buckleNumber: "9021", station: "Ashok Nagar" });
+  const g = buildEscalation(corpus, s.state);
+  const draft = g.options[0]!.draft;
+  assert(draft.includes("9021"), "buckle number not substituted");
+  assert(draft.includes("Ashok Nagar"), "station not substituted");
+  assert(!g.options[0]!.unfilled.includes("officerBuckle"), "a filled token still reported unfilled");
+});
+
+await t("a second officer is carried into the draft rather than dropped", async () => {
+  const s = await escalated();
+  upsertOfficer(s.state, { buckleNumber: "9021" });
+  upsertOfficer(s.state, { buckleNumber: "9022", name: "S. Iyer" });
+  const draft = buildEscalation(corpus, s.state).options[0]!.draft;
+  assert(draft.includes("9022") || draft.includes("S. Iyer"), "the second officer vanished from the draft");
+});
+
+await t("every route in the corpus passes the output guard", () => {
+  // The same three checks live guidance gets. A section number invented in a
+  // complaint letter is wrong in exactly the same way as one said aloud.
+  const st = new Session(new MockProvider(), { corpus }).state;
+  const g = buildEscalation(corpus, st);
+  const all = { ...g, options: corpus.escalation.routes.map((route) => ({
+    route, because: [], draft: route.draftTemplate, unfilled: [], provisions: [],
+  })) };
+  const checked = guardEscalation(corpus, all);
+  assert(checked.withheld.length === 0, `withheld: ${checked.withheld.map((w) => `${w.routeId} (${w.violations.map((v) => v.detail).join("; ")})`).join(", ")}`);
+});
+
+await t("a route with an invented citation is withheld, and named", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  const g = buildEscalation(corpus, st);
+  const poisoned = {
+    ...g,
+    options: [
+      { ...g.options[0]!, draft: "You are entitled to relief under section 999 of the Act." },
+      g.options[1]!,
+    ].filter(Boolean),
+  };
+  const checked = guardEscalation(corpus, poisoned);
+  assert(checked.withheld.length === 1, `expected one withheld route, got ${checked.withheld.length}`);
+  assert(checked.withheld[0]!.routeId === g.options[0]!.route.id, "the wrong route was withheld");
+  assert(checked.kept.every((o) => !o.draft.includes("999")), "the poisoned draft survived");
+});
+
+await t("renderDraft leaves a visible blank, never an empty string", () => {
+  const { draft, unfilled } = renderDraft("Name: {{complainantName}}.", new Map());
+  assert(unfilled.includes("complainantName"), "not reported unfilled");
+  assert(/_{4,}/.test(draft), `no visible blank in: ${draft}`);
+});
+
+await t("escalation renders to markdown with the unverified warning first", async () => {
+  const s = await escalated();
+  const md = escalationToMarkdown(buildEscalation(corpus, s.state));
+  assert(md.includes("UNVERIFIED CORPUS"), "no unverified banner");
+  assert(md.indexOf("UNVERIFIED CORPUS") < md.indexOf("Who hears it"), "banner is below the content");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R13 — post-incident debrief                                      */
+/* ------------------------------------------------------------------ */
+
+console.log("\ndebrief (R13)");
+
+await t("the window opens with the session and closes 24 hours later", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  st.startedAt = new Date("2026-09-01T10:00:00Z").toISOString();
+  const w = debriefWindow(corpus, st, new Date("2026-09-01T22:00:00Z"));
+  assert(w.open, "window closed 12 hours in");
+  assert(Math.round(w.hoursRemaining) === 12, `hoursRemaining was ${w.hoursRemaining}`);
+  const later = debriefWindow(corpus, st, new Date("2026-09-03T10:00:00Z"));
+  assert(!later.open, "window still open two days later");
+  assert(later.hoursRemaining === 0, "negative hours reported");
+});
+
+await t("a late answer is kept and marked, not discarded", () => {
+  // Dropping it would throw away the only account of an encounter to protect
+  // a property of the account. The date stamp already carries that warning.
+  const st = new Session(new MockProvider(), { corpus }).state;
+  st.startedAt = new Date("2026-09-01T10:00:00Z").toISOString();
+  submitDebrief(corpus, st, { answers: { paperwork: "challan 4471" } }, new Date("2026-09-05T10:00:00Z"));
+  assert(st.debrief.length === 1, "the answer was dropped");
+  assert(st.debrief[0]!.afterWindow, "a late answer was not marked");
+});
+
+await t("an unknown question id is rejected, never stored", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  const r = submitDebrief(corpus, st, { answers: { "not-a-question": "arbitrary text" } });
+  assert(r.rejected.includes("not-a-question"), "not reported as rejected");
+  assert(st.debrief.length === 0, "arbitrary text reached a document a lawyer reads");
+});
+
+await t("an emptied answer is a retraction", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  submitDebrief(corpus, st, { answers: { paperwork: "challan 4471" } });
+  submitDebrief(corpus, st, { answers: { paperwork: "  " } });
+  assert(st.debrief.length === 0, "the retracted answer survived");
+});
+
+await t("answering the same question twice replaces rather than appends", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  submitDebrief(corpus, st, { answers: { paperwork: "first" } });
+  submitDebrief(corpus, st, { answers: { paperwork: "second" } });
+  assert(st.debrief.length === 1, `${st.debrief.length} answers for one question`);
+  assert(st.debrief[0]!.value === "second", "the correction was not applied");
+});
+
+await t("completeness ignores optional questions", () => {
+  const st = new Session(new MockProvider(), { corpus }).state;
+  const required = corpus.debrief.questions.filter((q) => !q.optional);
+  const answers: Record<string, string> = {};
+  for (const q of required) answers[q.id] = "x";
+  submitDebrief(corpus, st, { answers });
+  assert(debriefState(corpus, st).complete, "still incomplete with every required answer given");
+});
+
+await t("exactly one question carries the accuracy signal", () => {
+  // PRD R6's "did this match what happened?" metric has one collection point.
+  // Two would double-count it; none would leave the metric unmeasurable.
+  const n = corpus.debrief.questions.filter((q) => q.accuracySignal).length;
+  assert(n === 1, `${n} accuracy questions`);
+});
+
+await t("debrief answers reach the packet with their prompts", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  submitDebrief(corpus, s.state, { answers: { paperwork: "challan 4471" } });
+  const md = packetToMarkdown(await buildPacket(s.state, new MockProvider()));
+  assert(md.includes("challan 4471"), "answer missing from packet");
+  assert(md.includes("What paper"), "prompt missing — the answer alone is not a record");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R8 — packet completion                                           */
+/* ------------------------------------------------------------------ */
+
+console.log("\npacket completion (R8)");
+
+const withSupplement = async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  return buildPacket(s.state, new MockProvider(), {
+    locationTrail: [{ at: "2026-09-01T10:00:05Z", latitude: 21.7645, longitude: 72.1519, seq: 0 }],
+    mediaBundle: {
+      serviceLabel: "kavach-evidence",
+      chunks: [{ seq: 0, receivedAt: "2026-09-01T10:00:12Z", capturedAt: "2026-09-01T10:00:02Z", sha256: "abc123", bytes: 81234, mime: "audio/m4a" }],
+      totalBytes: 81234,
+      firstReceivedAt: "2026-09-01T10:00:12Z",
+      lastReceivedAt: "2026-09-01T10:00:12Z",
+    },
+  });
+};
+
+await t("not supplied and none held read differently", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  const bare = packetToMarkdown(await buildPacket(s.state, new MockProvider()));
+  assert(bare.includes("Not supplied"), "an absent trail read as an empty one");
+
+  const empty = packetToMarkdown(
+    await buildPacket(s.state, new MockProvider(), { locationTrail: [], mediaBundle: { serviceLabel: "x", chunks: [], totalBytes: 0, firstReceivedAt: null, lastReceivedAt: null } }),
+  );
+  assert(empty.includes("Supplied, and empty"), "an empty trail read as an absent one");
+});
+
+await t("the location trail and media manifest render", async () => {
+  const md = packetToMarkdown(await withSupplement());
+  assert(md.includes("21.764500"), "latitude missing");
+  assert(md.includes("abc123"), "content hash missing");
+  assert(md.includes("not one continuous recording"), "the rotation gap was not disclosed");
+});
+
+await t("the packet renders as self-contained print HTML", async () => {
+  const html = packetToHtml(await withSupplement());
+  assert(html.startsWith("<!doctype html>"), "not a document");
+  assert(html.includes("@page"), "no print geometry");
+  assert(!/<(script|iframe)\b/i.test(html), "the packet loads executable content");
+  assert(!/(src|href)=["']https?:/i.test(html), "the packet fetches something over the network");
+});
+
+await t("HTML output escapes transcript text rather than rendering it", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("<img src=x onerror=alert(1)> show me your licence", "officer");
+  const html = packetToHtml(await buildPacket(s.state, new MockProvider()));
+  assert(!html.includes("<img src=x"), "transcript text was rendered as markup");
+  assert(html.includes("&lt;img"), "transcript text was dropped instead of escaped");
+});
+
+await t("Devanagari and Tamil survive into the HTML unmangled", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("चाबी दो, वरना गाड़ी नहीं जाएगी", "officer");
+  const html = packetToHtml(await buildPacket(s.state, new MockProvider()));
+  assert(html.includes("चाबी"), "Devanagari lost from the transcript");
+  assert(html.includes("<html lang=\"en\">") && html.includes('charset="utf-8"'), "no encoding declared");
+});
+
+/* ------------------------------------------------------------------ */
+/* PRD R6 — corpus review state                                         */
+/* ------------------------------------------------------------------ */
+
+console.log("\ncorpus review (R6)");
+
+await t("never reviewed counts as overdue, not as exempt", () => {
+  // The inversion worth guarding: if null meant "no deadline", the least
+  // reviewed content in the system would be the only content never flagged.
+  const r = reviewCorpus(corpus);
+  assert(r.neverReviewed > 0, "fixture expects an unreviewed corpus");
+  assert(r.overdue.length >= r.neverReviewed, "an unreviewed item escaped the overdue list");
+});
+
+await t("a future review date is neither overdue nor due soon", () => {
+  const future = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString();
+  const patched = {
+    ...corpus,
+    provisions: new Map([["X", { ...corpus.provisions.values().next().value!, id: "X", verification: { status: "counsel-signed-off" as const, advocate: "A", signedOffAt: "2026-01-01", reviewDueAt: future } } ]]),
+    scenarios: new Map(),
+    rules: [],
+    escalation: { routes: [], placeholders: [] },
+    fallback: { ...corpus.fallback, verification: { ...corpus.fallback.verification, reviewDueAt: future, status: "counsel-signed-off" as const } },
+  };
+  const r = reviewCorpus(patched);
+  assert(r.overdue.length === 0, "a future date was reported overdue");
+  assert(r.dueSoon.length === 0, "200 days out was reported due soon");
+});
+
+await t("a date inside 30 days is due soon", () => {
+  const soon = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+  const patched = {
+    ...corpus,
+    provisions: new Map([["X", { ...corpus.provisions.values().next().value!, id: "X", verification: { status: "counsel-signed-off" as const, advocate: "A", signedOffAt: "2026-01-01", reviewDueAt: soon } } ]]),
+    scenarios: new Map(),
+    rules: [],
+    escalation: { routes: [], placeholders: [] },
+    fallback: { ...corpus.fallback, verification: { ...corpus.fallback.verification, reviewDueAt: soon, status: "counsel-signed-off" as const } },
+  };
+  const r = reviewCorpus(patched);
+  assert(r.dueSoon.length === 2, `expected both items due soon, got ${r.dueSoon.length}`);
+});
+
+await t("the review state travels with the packet", async () => {
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  const p = await buildPacket(s.state, new MockProvider());
+  assert(p.corpusReview.total > 0, "no review state in the packet");
+  assert(packetToMarkdown(p).includes("overdue for review"), "review state not rendered");
+});
+
+/* ------------------------------------------------------------------ */
+/* Restored sessions                                                    */
+/* ------------------------------------------------------------------ */
+
+console.log("\nrestored sessions");
+
+await t("a session persisted before these fields existed still opens", async () => {
+  // The failure this prevents lands at the worst moment: someone opening the
+  // packet after the encounter, on a session written by an older build.
+  const s = new Session(new MockProvider(), { corpus });
+  await s.ingest("Show me your licence", "officer");
+  const legacy = JSON.parse(JSON.stringify(s.state)) as Record<string, unknown>;
+  delete legacy["officers"];
+  delete legacy["debrief"];
+
+  const restored = new Session(new MockProvider(), { corpus, state: legacy as unknown as SessionState });
+  assert(Array.isArray(restored.state.officers), "officers did not default");
+  assert(Array.isArray(restored.state.debrief), "debrief did not default");
+  const p = await buildPacket(restored.state, new MockProvider());
+  assert(p.officers.length === 0, "packet build threw or invented officers");
+  assert(typeof packetToMarkdown(p) === "string", "packet did not render");
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

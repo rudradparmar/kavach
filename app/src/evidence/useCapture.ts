@@ -5,7 +5,9 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
+import Constants from "expo-constants";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { backgroundRecordingAvailable } from "./background";
 
 /**
  * The microphone. All of it.
@@ -33,13 +35,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * chunks is not continuous audio. Do not describe it to a lawyer as if it
  * were.
  *
- * ## What stops when the screen does
+ * ## What happens when the screen locks
  *
- * This captures in the foreground only. Background recording on Android needs
- * a foreground service, which is a native configuration Expo Go cannot carry.
- * If the app is backgrounded or the phone is locked, capture stops — and what
- * survives is what the evidence service already acknowledged, which is exactly
- * the guarantee R4 actually states.
+ * In **Expo Go**, capture is foreground only: background recording on Android
+ * needs a foreground service, which Expo Go cannot carry. Lock the phone and
+ * capture stops; what survives is what the evidence service already
+ * acknowledged, which is exactly the guarantee R4 states.
+ *
+ * In a **real build** (see app/BUILD.md), app.json asks expo-audio for a
+ * microphone foreground service, and the recorder keeps running with the
+ * screen off, under a persistent system notification — the recording stays
+ * indicated, as R4 requires. What does *not* keep running is this file's
+ * rotation timer: JavaScript timers are suspended in the background, so the
+ * recording becomes one long chunk until the app is foregrounded again, and
+ * that chunk is not off the phone until then. Background capture means
+ * nothing is lost *if the phone is not taken*; it does not move the upload
+ * forward. Never describe it as continuous off-device capture.
+ *
+ * UNTESTED ON A DEVICE as of 4 October 2026.
  */
 
 export type PermissionState = "unknown" | "granted" | "denied";
@@ -55,6 +68,9 @@ export interface CapturedChunk {
 
 /** Ten seconds, from R4: "when 10 seconds of audio exist, then that chunk is uploaded". */
 const ROTATE_MS = 10_000;
+
+/** Read once: the execution environment does not change while the app runs. */
+const background = backgroundRecordingAvailable(Constants.executionEnvironment);
 
 export function useCapture({ onChunk }: { onChunk: (chunk: CapturedChunk) => void }) {
   const recorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
@@ -79,7 +95,13 @@ export function useCapture({ onChunk }: { onChunk: (chunk: CapturedChunk) => voi
         const { granted } = await requestRecordingPermissionsAsync();
         if (cancelled) return;
         setPermission(granted ? "granted" : "denied");
-        if (granted) await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+        if (granted) {
+          await setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: true,
+            allowsBackgroundRecording: background,
+          });
+        }
       } catch (e) {
         if (!cancelled) {
           setPermission("denied");
@@ -214,5 +236,7 @@ export function useCapture({ onChunk }: { onChunk: (chunk: CapturedChunk) => voi
     durationMs: state.durationMillis ?? 0,
     permission,
     error,
+    /** True only in a build that carries the microphone foreground service. */
+    background,
   };
 }

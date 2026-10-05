@@ -1,6 +1,72 @@
 # Handoff — where this stands
 
-Last updated: 4 September 2026. Under version control since the same day.
+Last updated: 4 October 2026. Under version control since 4 September (local only — no remote yet; see below).
+
+## The short version
+
+Every PRD requirement now has something built against it. **One thing stands
+between this and public use, and it is not engineering:** the corpus is
+unverified placeholder law and no advocate has read it.
+
+`cd app && npm run preflight` is the gate. It reports that as a blocker and
+exits non-zero. Everything else it checks is green against a local deployment,
+and the two remaining warnings are the mock speech provider (needs a key) and
+plain HTTP on loopback (a real deployment terminates TLS at Cloudflare's edge).
+
+Built in this pass, all previously listed as missing: R9 escalation guidance,
+R11 officer detail capture, R12 language expansion, R13 post-incident debrief,
+R8's PDF output / location trail / media bundle, R4's periodic location, R6's
+in-product staleness flagging, and instance-key rotation.
+
+## 4 October pass — what changed
+
+Nothing user-facing about the law changed; every legal field in the corpus is
+byte-identical. All of it is perception, measurement and the first native work.
+
+- **Fact cues no longer invent misconduct from a question.** "Why am I being
+  arrested?" used to record `groundsGiven=no`, and "I informed my family"
+  recorded `relativeInformed=no` — both fed UNLAWFUL flags. Questions and
+  requests are now *shielded* (a cue valued `unknown` claims the fact for the
+  turn and reports nothing), the user's own inaction ("I haven't told my
+  family") is shielded too, and only an explicit statement records `no`.
+  Decision recorded: a missed flag is safer than an invented one.
+- **`giraftar` fixed.** `"usne giraftar nahi kaha"` no longer classifies as an
+  arrest; the bare Latin cue became `giraftar kar` / `giraftar ho`, and the
+  fact extractor has a Latin negative.
+- **The perception eval exists** (`npm run eval`, see `kavach-engine/README.md`).
+  It found two more inversions on its first run — "I am *not* wearing a
+  helmet" recorded `helmetWorn=yes`, and "nobody was violent" recorded
+  `assemblyPeaceful=no` — both fixed with polarity tests. And it found the
+  real number: **on the held-out set the keyword mock gets 45% of scenarios
+  right.** The 100% on the tuning set is the mock memorising its own cues.
+  The live model has never been scored; that is now the most important
+  measurement in the project.
+- Cue quality: classifier cues are substring matches, so `force` matched "in
+  force" and `hit` matched "white". Narrowed to `using force` / `hitting`.
+  Added `section 163`, `prohibitory order`, `hand over your phone`,
+  `are being arrested`, `गिरफ़्तार हो`. Counts stay within the spread limit.
+- **The live model is configuration.** `KAVACH_ANTHROPIC_MODEL`, default
+  `claude-sonnet-5-5` (the old hardcoded `claude-sonnet-4-5` is no longer in
+  Anthropic's model list). The provider name now carries the model id, so
+  `/health`, replay and eval say which model perceived an encounter. The
+  extraction prompt now says a question is not evidence. SDK 0.32 → 0.131.
+- **CI, one manual step left.** `Claude outputs/ci.yml` now holds the full
+  workflow: the `afterwards` step, the preflight single-blocker assertion and
+  both eval sets. Remote tools cannot write into `.github/`, so copy it over
+  `.github/workflows/ci.yml` by hand. Until then CI runs the 4 September
+  version, which has none of the three.
+- **First native work** (untested on a device — `app/BUILD.md`): background
+  recording through expo-audio's microphone foreground service, a "Start
+  session" Android shortcut that opens `kavach://start` and starts a session
+  with no further tap (R1), an `eas.json` for a field-test APK, and an honest
+  line on the evidence card saying whether recording survives a screen lock.
+  `expo prebuild` confirms the manifest; nothing has run on a phone.
+- The engine's broken `build` script is gone (`typecheck` replaces it).
+
+Verified 4 October, in a clean checkout: validate 0 errors; engine 155,
+evidence 22, STT 11, app units 56 — all passing; app typecheck clean; smoke,
+pipeline, evidence, auth and afterwards green against live services; both
+eval sets pass their gates; preflight reports exactly the corpus blocker.
 
 ## What exists
 
@@ -23,14 +89,58 @@ Last updated: 4 September 2026. Under version control since the same day.
   capability minted by the engine opens that one session on all three services.
   A token for one encounter returns 403 on another. `stt-service` and
   `evidence-service` verify it without knowing the engine exists.
+- **Key rotation.** `KAVACH_API_KEYS` and `KAVACH_SESSION_SECRETS` list keys
+  still accepted besides the current one. PRD R1 forbids a login, so every
+  phone shares one instance key and there is no account to push a new one to:
+  changing it in one step locks every installed app out at the same instant,
+  and the instant anyone notices is a police stop. Two-step rotation, with the
+  second step — emptying the list — being the one people skip, which is why
+  the boot banner says ROTATING for as long as it is not empty.
 - Sessions persisted to disk with atomic writes, so a restart does not take the
   lawyer packet with it. Ships with `DELETE /session/:id` (PRD R4), a
   retention sweep on boot, and `KAVACH_PERSIST_SESSIONS=0` to turn it all off
   — durability of a police-encounter transcript is a trade, not a free win.
   A restored session keeps its recorded corpus version and refuses new turns
   under a different one (409), so one audit trail never mixes two corpora.
-- 61 tests, including a deliberately hostile provider, a fact-polarity group,
-  Latin/Devanagari parity, the session store, and token forgery. All passing.
+- **Escalation guidance (R9).** Eight complaint routes in
+  `corpus/escalation.json`, selected deterministically from the scenarios
+  traversed and the flags raised — never by a model. Each carries the
+  authority, its remit, concrete ways in, the deadline (including "none is
+  stated", where that is the honest answer), required contents, cautions, and
+  an editable draft. The engine fills the draft **by substitution only**:
+  dates, the officer's buckle number, the corpus statements of the flags. It
+  does not narrate. `{{whatHappened}}` and `{{complainantName}}` are
+  structurally unfillable and are reported as blanks rather than invented.
+  Every route goes through the same output guard as live guidance, one route
+  at a time, so a bad route is withheld on its own and the client is told
+  which and why.
+- **Officer detail capture (R11).** `corpus/capture/officer-fields.json` holds
+  the prompts, in usefulness order, buckle number first. Records are
+  user-entered, nullable, partial-by-design and marked `source: "user"`.
+  Nothing is inferred from the transcript and nothing ever should be. They
+  reach the packet, and they fill the escalation draft.
+- **Post-incident debrief (R13).** Ten questions, a 24-hour window, answers
+  appended to the packet. Late answers are **kept and marked**, not dropped.
+  An unknown question id is rejected at the boundary rather than stored —
+  otherwise a client could put arbitrary text into a document an advocate
+  reads as a structured record. Exactly one question carries the accuracy
+  signal PRD R6 needs, and the validator enforces that there is exactly one.
+- **Language expansion (R12).** Tamil, Telugu, Bengali, Marathi and Kannada
+  alongside English and Hindi. Quotable lines in all seven, classifier cues in
+  all six scripts, a `corpus/languages.json` registry, per-language
+  translation status, and TTS subtags. Cue counts are balanced (spread of 4;
+  the validator fails above 8).
+- **Corpus review state (R6).** `reviewDueAt` has been a field in every corpus
+  file since the schema was written and nothing read it. It is now read, and
+  something never reviewed counts as **overdue rather than exempt** — see the
+  note below on why the inverse would be exactly wrong.
+- **The packet is complete (R8).** Officer details, debrief answers, the
+  location trail, the media-bundle manifest, the corpus review state, and
+  print-ready HTML that the phone turns into a PDF.
+- 155 tests, including a deliberately hostile provider, a fact-polarity group,
+  Latin/Devanagari parity, the session store, token forgery, key rotation,
+  escalation guarding, and a session persisted before half these fields
+  existed. All passing.
 
 Verify in one command:
 
@@ -211,7 +321,8 @@ extraction hands it. Negatives now precede affirmatives, negation is matched
 with a bounded gap, and a `fact polarity` group in `test/run.ts` asserts all of
 it, including that the suppressed UNLAWFUL flag now fires.
 
-**Still open, deliberately.** Two cues map an affirmative phrase to `no` —
+**Closed on 4 October** (see the 4 October section). Kept for the reasoning.
+Two cues mapped an affirmative phrase to `no` —
 `relativeInformed` (`/inform(ed)? my (family|...)/ → no`) and `groundsGiven`
 (`/why am i being arrested/ → no`). Both look like "the user is asking, so it
 has not happened yet", which is defensible for *"let me inform my family"* and
@@ -249,25 +360,29 @@ the Latin path, which was outside this pass.
 - Services are runnable in production for the first time: `tsx` was a
   devDependency while being the only working runtime, so `npm ci --omit=dev`
   removed the thing that runs the service. Moved to `dependencies`, `start`
-  scripts added. `npm run build` still produces output that cannot find its
-  corpus — do not use it.
+  scripts added. The engine's `build` script, whose output could not find its
+  corpus, has been removed; `npm run typecheck` replaces it.
 
 ## What does not exist
 
-Everything operational, and the parts of the client that touch hardware:
+The four PRD requirements previously listed here — R9, R11, R12, R13 — are
+built. What is left is hardware, keys, and people.
 
 - **Gapless** capture. `expo-audio` has no segmented mode, so rotation stops
   and restarts the recorder and loses the milliseconds between chunks. A
   transcript assembled from them is not continuous audio.
-- **Background** capture. Recording stops when the app is backgrounded or the
-  phone locked; Android needs a foreground service, which Expo Go cannot carry.
-  What survives is what the service already acknowledged — which is what R4
-  actually promises.
+- **Background upload.** In Expo Go recording stops when the phone locks. In
+  a real build (4 October, untested) the recorder keeps going under a
+  foreground service, but chunk rotation and upload are JavaScript and pause
+  until the app is reopened, so audio recorded while locked is still only on
+  the phone. Do not describe it as continuous off-device capture.
 - Automatic alert delivery. `expo-sms` cannot send silently and
   Android never reports a result, so R5's "one tap sends" and the >=98%
   delivery metric need a server-side sender with credentials. The two channels
   and the message are built; only the sending is manual.
-- Lock-screen widget and panic-mode entry (PRD R1).
+- Lock-screen entry (PRD R1). A home-screen "Start session" shortcut exists
+  as of 4 October (untested); starting from a locked phone without unlocking
+  does not.
 - ~~TLS~~ — **done.** Cloudflare Tunnel terminates TLS at the edge, so there is
   a real certificate and no inbound port on the host. See `deploy/`.
 
@@ -289,7 +404,6 @@ Everything operational, and the parts of the client that touch hardware:
   session, at a police stop. The first version had this backwards and refused a
   valid key after 40 wrong ones.
 
-  **The key still does not rotate.** That part is unchanged.
 - **Per-user identity.** Two people sharing a deployment share an instance key.
   Real multi-tenancy needs an identity model the PRD has not asked for.
 
@@ -354,59 +468,64 @@ One is a live design tension worth resolving in code:
 
 ## Suggested next task
 
-Most PRD requirements now have something built against them. **Four do not,
-and were previously not listed as missing anywhere in this file:**
+**Score the live model on the holdout, then use it on a real handset.**
 
-- **R9 — escalation guidance.** Which authority hears the complaint, the
-  deadline, the required contents, a draft the user edits. Nothing exists.
-  This is content work as much as engineering: it needs the same advocate
-  sign-off pipeline as R2.
-- **R11 — officer detail capture.** Guided prompts for name, buckle number,
-  station, vehicle number. Nothing exists. The corpus repeatedly tells the user
-  this is the fact most often missing later while giving them nowhere to put
-  it, and its absence is the direct cause of R8's missing officer section.
-- **R12 — language expansion** (Tamil, Telugu, Bengali, Marathi, Kannada).
-  Nothing exists. The method is recorded below; cue counts must stay balanced.
-- **R13 — post-incident debrief.** Structured questions within 24 hours,
-  appended to the packet. Nothing exists. It is also the collection path the
-  "did this match what happened?" metric needs.
+```bash
+cd kavach-engine
+KAVACH_LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=... \
+  npm run eval -- --cases eval/holdout.json --out eval/results/anthropic-holdout.json
+```
 
-Three sub-clauses of requirements marked done are also absent: R8's **PDF
-output**, **location trail** and **media bundle** (three of its six named
-contents), R4's **periodic location** — `evidence-service` already accepts
-`lat`/`lon` on chunk upload and the client simply never sends them — and
-R6's rule that provisions unreviewed for six months are **flagged in-product**,
-where `reviewDueAt` is a field in every corpus file that nothing reads.
+That answers whether the live classifier is worth its latency and cost (mock:
+45% scenario accuracy on the same set). Then build the APK per
+`app/BUILD.md` and work through its checklist alongside the one below.
 
-The rest of what is left needs a key, a native module, or an answer from a
-person.
+**Use it on a real handset.** The guidance loop, speech, offline cards, the
+packet, the alert, evidence capture and now the officer form, the escalation
+drafts and the debrief have all been built without a phone in the loop.
+Several decisions above are guesses about how it feels that only a handset can
+settle — the language chips on the quotable card, the officer form at arm's
+length, and whether a 260px draft editor is usable on a phone at all.
 
-1. ~~TLS in front of the three services.~~ **Done** — see `deploy/`. The real
-   blocker turned out to be the client's hardcoded sibling ports, not the
-   certificate.
-2. **A real transcription endpoint** — deferred by decision, but it is the only
-   way to learn anything about real-world accuracy: code-mixed Hindi-English,
-   roadside noise, and what upload actually costs on a weak network. Point
-   `KAVACH_STT_PROVIDER` at Whisper and measure. The latency readout on the
-   session screen exists for exactly this.
-3. **Leaving Expo Go.** Three separate limits now point the same way — gapless
-   capture, background capture, and the lock-screen widget (PRD R1) all need
-   native modules. A development build buys all three at once, and nothing else
-   will buy any of them.
-4. **Alert delivery**, if a server-side sender is ever wanted. The message, the
-   channels and the contacts all exist; it is one provider call from being
-   automatic with receipts.
+After that, in order:
 
-The guidance loop, speech, offline cards, the packet, the alert and evidence
-capture have all been built without a phone in the loop. **Use it on a real
-one before building anything further** — several of the above are guesses about
-how it feels that only a handset can settle.
+1. **Point `KAVACH_STT_PROVIDER` at Whisper and measure.** It is the only way
+   to learn anything about code-mixed Hindi-English, roadside noise, and what
+   an upload costs on a weak network. The latency readout exists for this.
+2. **Native, round two.** Background recording and the shortcut are written
+   (see `app/BUILD.md`). Still needed: chunk rotation and upload inside the
+   foreground service (so audio recorded while locked leaves the phone while
+   locked), gapless capture, and a Quick Settings tile for a lock-screen start.
+3. **Fact extraction beyond Latin and Devanagari.** The five new languages
+   classify and display, but establish no facts, so a Tamil session gets its
+   scenario and no misconduct flags. Deliberately left: a fact extracted
+   backwards defeats every layer below it, and machine-extending thirty fact
+   regexes into five scripts is the highest-risk change available.
+4. **Alert delivery**, if a server-side sender is ever wanted.
 
-**Still blocked on people, not code:** no advocate is engaged, so the corpus
+**Still blocked on people, not code.** No advocate is engaged, so the corpus
 cannot leave `unverified`; and the PRD's liability question about the quotable
 line is unanswered, which gates whether R3 ships in its current form at all.
 Neither is an engineering task, and the product cannot reach a user until both
-are closed.
+are closed. `npm run preflight` says so, in those terms, and exits non-zero.
+
+## Deploying it
+
+`README.md` is the deploy guide and `deploy/README.md` has the detail. Two
+things worth repeating here because they are the ones that bite:
+
+- **The host needs a real disk.** Both stores assume one and neither says so
+  when it is missing. On an ephemeral filesystem the engine restores
+  `0 sessions` and carries on, and evidence-service returns a clean 404 for
+  audio that used to exist — the service whose entire purpose is that a
+  recording outlives the handset fails silently and looks healthy.
+- **`npm run preflight` is the go-live check**, and it is a different question
+  from the test suites. They ask whether the code works; it asks whether this
+  deployment should be in front of a person. It separates blockers (a user
+  could be harmed or lose evidence) from warnings (something is degraded in a
+  way the product already tells the user about), and CI asserts that the
+  corpus gate is the *only* blocker — so a second one appearing fails the
+  build rather than hiding behind the first.
 
 ## Things to be careful about
 
@@ -504,6 +623,39 @@ are closed.
   A month-old instance held every session and every chunk of audio past every
   stated bound and reported nothing. `shared/lifecycle.ts` sweeps on a timer;
   anything else periodic belongs there too, not in a boot sequence.
+- **`reviewDueAt: null` means overdue, not exempt.** Every corpus entry has it
+  null today because nothing has ever been reviewed. Treating null as "no
+  deadline set" would make the least-reviewed content in the system the only
+  content that never gets flagged, and the flag would light up for the first
+  time only after someone had already done the work — inverted exactly wrong.
+  `neverReviewed` is counted separately so "nobody has started" stays
+  distinguishable from "this lapsed".
+- **An escalation route that trips the guard is withheld, not degraded.**
+  There is no safe fallback for a complaint letter the way there is for a
+  turn, so the route is dropped and the client is told which one and why. A
+  route that vanishes silently reads as "the corpus has nothing to offer",
+  when what it means is that the corpus has a defect someone must fix.
+- **The PDF is rendered by the phone, not by the engine.** `packetToHtml`
+  emits print-ready HTML and `expo-print` turns it into a PDF using the
+  platform's own text shaping. A PDF written server-side with the wrong font
+  does not fail — it emits blank boxes, and a lawyer receives a document with
+  the client's own words silently missing. A packet can carry Devanagari,
+  Tamil, Telugu, Bengali and Kannada in one paragraph, because the transcript
+  is whatever the person actually said.
+- **The packet's HTML must stay self-contained.** No script tag, no external
+  stylesheet, no remote image. A document about someone's encounter with
+  police must not make a network request when a lawyer opens it, from their
+  office, months later. Two tests assert it and one of them checks that
+  transcript text is escaped rather than rendered.
+- **A rotation that is never finished is a leaked key that never expires.**
+  The overlap in `KAVACH_API_KEYS` exists so a rotation does not lock every
+  phone out at once. It is a window, not a setting. The boot banner says
+  ROTATING for exactly as long as someone has not finished step two.
+- **`currentFix` never prompts and never blocks.** It reads permission state
+  rather than requesting it, caches for thirty seconds, and gives up after
+  2.5s. A permission dialog appearing mid-encounter because a ten-second
+  timer fired would be its own harm, and audio with no coordinates is worth
+  far more than coordinates that cost audio.
 - **An async test in a sync harness passes without running.** Making
   `evidence-service`'s harness accept promises without awaiting its existing
   calls meant `process.exit` fired while tests were still pending: one test

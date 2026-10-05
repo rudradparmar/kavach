@@ -62,7 +62,9 @@ the artifact that makes the ninety seconds worth anything afterwards.
 ```bash
 npm install
 npm run validate                  # corpus integrity — 0 errors required
-npm test                          # 73 assertions, incl. the hostile provider
+npm test                          # 155 tests, incl. the hostile provider
+npm run eval                      # perception scorecard on eval/cases.json
+npm run eval -- --cases eval/holdout.json   # ...and on the held-out set
 npm run replay -- fixtures/transcripts/escalating-traffic-stop.json
 npm run replay -- fixtures/transcripts/escalating-traffic-stop.json --packet
 npm run dev                       # HTTP API on :8787
@@ -76,7 +78,30 @@ that path has to beat. For the live one:
 
 ```bash
 KAVACH_LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... npm run replay -- <fixture>
+KAVACH_LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... npm run eval -- --cases eval/holdout.json --out eval/results/anthropic.json
 ```
+
+The model defaults to `claude-sonnet-5-5`; set `KAVACH_ANTHROPIC_MODEL` to
+change it. The provider name carries the model (`anthropic:<id>`), so `/health`,
+replay and eval reports say which model perceived the encounter.
+
+### The perception eval
+
+`npm run eval` replays labelled transcripts and scores whatever provider is
+configured. Two numbers are **gates** and fail the run above zero: an
+*inverted* fact (labelled `yes`, extracted `no`, or the reverse) and a *false
+flag* (a misconduct flag the labels say must not fire). The rule engine trusts
+extraction, so those are the errors nothing downstream can catch. Accuracy and
+recall are scores, printed, not gated.
+
+There are two sets. `eval/cases.json` is the tuning set: cue fixes are checked
+against it, so the mock scores near 100% there and that number means little.
+`eval/holdout.json` was written without looking at the cue table and must
+never be used to tune it. On 4 October 2026 the mock scored **45% scenario
+accuracy and 61% fact recall on the holdout**, with zero inversions after one
+fix. That is the baseline a live model has to beat, and the gap is the case
+for one. Add real field transcripts to both as they arrive; when the holdout
+goes stale, write a fresh one and fold the old one into `cases.json`.
 
 ## HTTP API
 

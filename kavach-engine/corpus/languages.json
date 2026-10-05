@@ -1,0 +1,14 @@
+{
+  "_note": "PRD R12. A language reaches a user only by appearing here AND in app/src/tts/languages.ts. Adding it in one place alone is a silent failure: the app would show a line it cannot pronounce, or refuse to speak one it can.",
+  "default": "en",
+  "launchPair": ["en", "hi"],
+  "languages": [
+    { "code": "en", "name": "English", "endonym": "English", "bcp47": "en-IN", "subtags": ["en", "eng"], "script": "Latin" },
+    { "code": "hi", "name": "Hindi", "endonym": "हिन्दी", "bcp47": "hi-IN", "subtags": ["hi", "hin"], "script": "Devanagari" },
+    { "code": "ta", "name": "Tamil", "endonym": "தமிழ்", "bcp47": "ta-IN", "subtags": ["ta", "tam"], "script": "Tamil" },
+    { "code": "te", "name": "Telugu", "endonym": "తెలుగు", "bcp47": "te-IN", "subtags": ["te", "tel"], "script": "Telugu" },
+    { "code": "bn", "name": "Bengali", "endonym": "বাংলা", "bcp47": "bn-IN", "subtags": ["bn", "ben"], "script": "Bengali" },
+    { "code": "mr", "name": "Marathi", "endonym": "मराठी", "bcp47": "mr-IN", "subtags": ["mr", "mar"], "script": "Devanagari" },
+    { "code": "kn", "name": "Kannada", "endonym": "ಕನ್ನಡ", "bcp47": "kn-IN", "subtags": ["kn", "kan"], "script": "Kannada" }
+  ]
+}

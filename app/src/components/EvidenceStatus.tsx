@@ -19,6 +19,7 @@ export function EvidenceStatus({
   pendingCount,
   serviceReachable,
   error,
+  background = false,
 }: {
   capturing: boolean;
   /** Chunks the service has acknowledged. These survive the phone. */
@@ -27,6 +28,12 @@ export function EvidenceStatus({
   pendingCount: number;
   serviceReachable: boolean;
   error: string | null;
+  /**
+   * Whether recording survives the screen locking. Said either way, because
+   * someone who locks their phone mid-encounter needs to know which of the two
+   * just happened, and the answer depends on how the app was installed.
+   */
+  background?: boolean;
 }) {
   if (!capturing && safe === 0 && pendingCount === 0) return null;
 
@@ -65,6 +72,14 @@ export function EvidenceStatus({
         <Text style={s.body}>Recording. Nothing has been uploaded yet.</Text>
       )}
 
+      {capturing ? (
+        <Text style={s.note}>
+          {background
+            ? "Keeps recording if the screen locks. What is recorded while locked uploads when you reopen Kavach."
+            : "Recording stops if the screen locks or you leave the app. Keep Kavach open."}
+        </Text>
+      ) : null}
+
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
   );
@@ -88,5 +103,6 @@ const s = StyleSheet.create({
 
   body: { color: colour.text, fontSize: type.small, lineHeight: 18 },
   emphasis: { fontWeight: "800", color: colour.warn },
+  note: { color: colour.textFaint, fontSize: type.small, lineHeight: 16 },
   error: { color: colour.textFaint, fontSize: type.small, lineHeight: 16 },
 });

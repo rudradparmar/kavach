@@ -8,7 +8,21 @@
   "officerCannot": [],
   "quotableLine": {
     "en": "May I know your name and buckle number, and what this is regarding?",
-    "hi": "क्या मैं आपका नाम और बकल नंबर जान सकता हूँ, और यह किस बारे में है?"
+    "hi": "क्या मैं आपका नाम और बकल नंबर जान सकता हूँ, और यह किस बारे में है?",
+    "ta": "உங்கள் பெயரும் பக்கிள் எண்ணும், இது எதைப் பற்றியது என்பதும் தெரியலாமா?",
+    "te": "మీ పేరు, బకిల్ నంబర్, ఇది దేని గురించి అని తెలుసుకోవచ్చా?",
+    "bn": "আপনার নাম ও বাকল নম্বর, আর এটি কী বিষয়ে, জানতে পারি?",
+    "mr": "आपले नाव आणि बकल क्रमांक, आणि हे कशाबाबत आहे, हे कळेल का?",
+    "kn": "ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ಬಕಲ್ ಸಂಖ್ಯೆ, ಮತ್ತು ಇದು ಯಾವ ವಿಷಯದ ಬಗ್ಗೆ ಎಂದು ತಿಳಿಯಬಹುದೇ?"
+  },
+  "translationStatus": {
+    "en": "source",
+    "hi": "unreviewed",
+    "ta": "unreviewed",
+    "te": "unreviewed",
+    "bn": "unreviewed",
+    "mr": "unreviewed",
+    "kn": "unreviewed"
   },
   "doNotSay": [
     "Any legal section you are not certain of.",
@@ -16,11 +30,45 @@
   ],
   "documentNow": "The officer's name and buckle number, the location, and the time.",
   "options": [
-    { "id": "fb-identify", "label": "Ask for the officer's name and buckle number.", "rationale": "Always available, never confrontational, and it is the fact most often missing later.", "rank": 1, "safest": true, "tradeoff": null },
-    { "id": "fb-comply", "label": "Comply with lawful instructions and keep your hands visible.", "rationale": "Nothing you gain by arguing outweighs what you lose if this escalates.", "rank": 2, "safest": false, "tradeoff": null },
-    { "id": "fb-record", "label": "Keep the session recording and let it upload.", "rationale": "The record is worth more than any argument made at the roadside.", "rank": 3, "safest": false, "tradeoff": null },
-    { "id": "fb-contact", "label": "Send the trusted-contact alert.", "rationale": "Someone knowing where you are costs nothing.", "rank": 4, "safest": false, "tradeoff": null }
+    {
+      "id": "fb-identify",
+      "label": "Ask for the officer's name and buckle number.",
+      "rationale": "Always available, never confrontational, and it is the fact most often missing later.",
+      "rank": 1,
+      "safest": true,
+      "tradeoff": null
+    },
+    {
+      "id": "fb-comply",
+      "label": "Comply with lawful instructions and keep your hands visible.",
+      "rationale": "Nothing you gain by arguing outweighs what you lose if this escalates.",
+      "rank": 2,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "fb-record",
+      "label": "Keep the session recording and let it upload.",
+      "rationale": "The record is worth more than any argument made at the roadside.",
+      "rank": 3,
+      "safest": false,
+      "tradeoff": null
+    },
+    {
+      "id": "fb-contact",
+      "label": "Send the trusted-contact alert.",
+      "rationale": "Someone knowing where you are costs nothing.",
+      "rank": 4,
+      "safest": false,
+      "tradeoff": null
+    }
   ],
-  "verification": { "status": "unverified", "advocate": null, "signedOffAt": null, "reviewDueAt": null, "notes": "Universal safe actions. Must be counsel-reviewed for escalation risk before any use." },
+  "verification": {
+    "status": "unverified",
+    "advocate": null,
+    "signedOffAt": null,
+    "reviewDueAt": null,
+    "notes": "Universal safe actions. Must be counsel-reviewed for escalation risk before any use."
+  },
   "_note": "PRD Design Principle 3 — this is what the engine says when it is not confident. It contains no section numbers by design."
 }

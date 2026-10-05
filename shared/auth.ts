@@ -46,12 +46,51 @@ const SECRETS_FILE = path.resolve(HERE, "../.kavach-secrets.json");
 export interface AuthConfig {
   /** False only when KAVACH_AUTH=0. Loud, deliberate, and never the default. */
   enabled: boolean;
+  /** The key new clients should be given. Rotation makes this the *new* one. */
   apiKey: string;
+  /**
+   * Keys still accepted while a rotation is in progress, `apiKey` first.
+   *
+   * PRD R1 forbids a login, so every phone on a deployment shares one instance
+   * key and there is no account to push a new one to. Without this, rotating
+   * means every installed app stops working at the same instant — and the
+   * instant a person notices is a police stop. So the old key keeps opening
+   * the door while people update, and is dropped from the list afterwards.
+   *
+   * The window is the cost: a leaked key stays usable until it comes out of
+   * `KAVACH_API_KEYS`. That is a deliberate trade against locking real users
+   * out mid-encounter, and it is only defensible because the list is explicit
+   * and someone has to remove the entry.
+   */
+  acceptedApiKeys: string[];
+  /** The secret new session tokens are signed with. */
   sessionSecret: string;
+  /**
+   * Secrets that still verify a token, `sessionSecret` first.
+   *
+   * A session token lives for hours and is held by a phone in the middle of an
+   * encounter. Rotating the signing secret without this would invalidate every
+   * live session at once, which means the audio stops uploading and the packet
+   * stops building, for everyone, immediately.
+   */
+  acceptedSessionSecrets: string[];
   /** How long a minted session token stays valid. */
   ttlMs: number;
   /** Where the secrets came from, for the boot banner. */
   source: "env" | "file" | "generated";
+}
+
+/** Comma or whitespace separated, empties dropped, order preserved. */
+function splitKeys(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.split(/[,\s]+/).map((k) => k.trim()).filter((k) => k.length > 0);
+}
+
+/** `primary` first, then any extras, without duplicates. */
+function acceptList(primary: string, extras: string[]): string[] {
+  const out = [primary];
+  for (const k of extras) if (!out.includes(k)) out.push(k);
+  return out;
 }
 
 interface SecretsFile {
@@ -75,17 +114,34 @@ export function loadAuthConfig(): AuthConfig {
 
   const envKey = process.env.KAVACH_API_KEY;
   const envSecret = process.env.KAVACH_SESSION_SECRET;
+  // Rotation lists. Each names the keys that still work *besides* the current
+  // one; the current one is always accepted and never has to be repeated.
+  const extraKeys = splitKeys(process.env.KAVACH_API_KEYS);
+  const extraSecrets = splitKeys(process.env.KAVACH_SESSION_SECRETS);
+
   if (envKey && envSecret) {
-    return { enabled, apiKey: envKey, sessionSecret: envSecret, ttlMs, source: "env" };
+    return {
+      enabled,
+      apiKey: envKey,
+      acceptedApiKeys: acceptList(envKey, extraKeys),
+      sessionSecret: envSecret,
+      acceptedSessionSecrets: acceptList(envSecret, extraSecrets),
+      ttlMs,
+      source: "env",
+    };
   }
 
   try {
     const parsed = JSON.parse(fs.readFileSync(SECRETS_FILE, "utf8")) as SecretsFile;
     if (parsed?.apiKey && parsed?.sessionSecret) {
+      const apiKey = envKey ?? parsed.apiKey;
+      const sessionSecret = envSecret ?? parsed.sessionSecret;
       return {
         enabled,
-        apiKey: envKey ?? parsed.apiKey,
-        sessionSecret: envSecret ?? parsed.sessionSecret,
+        apiKey,
+        acceptedApiKeys: acceptList(apiKey, extraKeys),
+        sessionSecret,
+        acceptedSessionSecrets: acceptList(sessionSecret, extraSecrets),
         ttlMs,
         source: "file",
       };
@@ -105,7 +161,15 @@ export function loadAuthConfig(): AuthConfig {
     // Read-only checkout: the process still runs, it just gets a new key each
     // boot, which fails loudly rather than silently allowing everything.
   }
-  return { enabled, apiKey: generated.apiKey, sessionSecret: generated.sessionSecret, ttlMs, source: "generated" };
+  return {
+    enabled,
+    apiKey: generated.apiKey,
+    acceptedApiKeys: acceptList(generated.apiKey, extraKeys),
+    sessionSecret: generated.sessionSecret,
+    acceptedSessionSecrets: acceptList(generated.sessionSecret, extraSecrets),
+    ttlMs,
+    source: "generated",
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -137,12 +201,18 @@ export function verifySessionToken(config: AuthConfig, token: string, now = Date
   const exp = Number(expRaw);
   if (!Number.isFinite(exp)) return { ok: false, reason: "malformed" };
 
-  const expected = sign(config.sessionSecret, `kv1.${sessionId}.${expRaw}`);
-  // Compared byte-wise in constant time. A length check first, because
-  // timingSafeEqual throws on a mismatch and that throw is itself a signal.
+  // Every accepted secret is tried, and all of them are tried even after one
+  // matches. Stopping early would make "signed with the retired secret" take
+  // measurably longer than "signed with the current one", which leaks which
+  // key a token came from to anyone timing the endpoint.
+  const body = `kv1.${sessionId}.${expRaw}`;
   const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, reason: "bad-signature" };
+  let matched = false;
+  for (const secret of acceptedSessionSecrets(config)) {
+    const b = Buffer.from(sign(secret, body));
+    if (a.length === b.length && timingSafeEqual(a, b)) matched = true;
+  }
+  if (!matched) return { ok: false, reason: "bad-signature" };
 
   // Signature before expiry: an attacker learns nothing from the ordering, and
   // an expired-but-valid token is a different problem from a forged one.
@@ -182,9 +252,25 @@ export function requireApiKey(config: AuthConfig, req: http.IncomingMessage): De
   if (!config.enabled) return null;
   const token = bearer(req);
   if (!token) return { status: 401, error: "missing bearer token" };
-  if (!secretEquals(token, config.apiKey)) return { status: 403, error: "not a valid key for this deployment" };
+  if (!isAcceptedApiKey(config, token)) return { status: 403, error: "not a valid key for this deployment" };
   return null;
 }
+
+/** Any key still accepted during a rotation. Constant time across the list. */
+export function isAcceptedApiKey(config: AuthConfig, candidate: string): boolean {
+  let ok = false;
+  for (const key of acceptedApiKeys(config)) if (secretEquals(candidate, key)) ok = true;
+  return ok;
+}
+
+/** Defensive: a config built before these fields existed still works. */
+const acceptedApiKeys = (c: AuthConfig): string[] =>
+  c.acceptedApiKeys && c.acceptedApiKeys.length > 0 ? c.acceptedApiKeys : [c.apiKey];
+
+const acceptedSessionSecrets = (c: AuthConfig): string[] =>
+  c.acceptedSessionSecrets && c.acceptedSessionSecrets.length > 0
+    ? c.acceptedSessionSecrets
+    : [c.sessionSecret];
 
 /**
  * A capability for one session.
@@ -205,7 +291,7 @@ export function requireSession(
   const token = bearer(req);
   if (!token) return { status: 401, error: "missing bearer token" };
 
-  if (secretEquals(token, config.apiKey)) return null;
+  if (isAcceptedApiKey(config, token)) return null;
 
   const check = verifySessionToken(config, token);
   if (!check.ok) {
@@ -230,5 +316,11 @@ export function describeAuth(config: AuthConfig): string {
       : config.source === "file"
         ? "from .kavach-secrets.json"
         : "generated into .kavach-secrets.json";
-  return `  auth: on · secrets ${where}`;
+  const rotating: string[] = [];
+  if (acceptedApiKeys(config).length > 1) rotating.push(`${acceptedApiKeys(config).length} instance keys`);
+  if (acceptedSessionSecrets(config).length > 1) rotating.push(`${acceptedSessionSecrets(config).length} session secrets`);
+  const suffix = rotating.length > 0
+    ? ` · ROTATING: ${rotating.join(", ")} accepted — retire the old ones once clients have updated`
+    : "";
+  return `  auth: on · secrets ${where}${suffix}`;
 }

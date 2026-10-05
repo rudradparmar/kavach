@@ -53,7 +53,16 @@ export class Session {
     this.corpus = opts.corpus ?? loadCorpus();
     this.provider = provider;
     if (opts.state) {
-      this.state = opts.state;
+      // A session written to disk before a field existed comes back without
+      // it. Normalising here rather than at each use keeps every downstream
+      // reader able to assume the shape — a restored session that is missing
+      // `officers` would otherwise throw at the moment someone opens the
+      // packet, which is the worst possible moment.
+      this.state = {
+        ...opts.state,
+        officers: opts.state.officers ?? [],
+        debrief: opts.state.debrief ?? [],
+      };
       return;
     }
     this.state = {
@@ -69,6 +78,8 @@ export class Session {
       flags: [],
       updates: [],
       rejectedByBoundary: [],
+      officers: [],
+      debrief: [],
     };
   }
 

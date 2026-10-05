@@ -272,6 +272,53 @@ await t("retention sweeps what is old and spares what is not", () => {
 });
 
 /* ------------------------------------------------------------------ */
+group("location trail (R4, R8)");
+
+await t("a fix recorded with a chunk comes back in the trail", () => {
+  const store = newStore();
+  put(store, 0, audio(64));
+  put(store, 1, audio(64));
+  const trail = store.trail(SID);
+  eq(trail.length, 2, "wrong number of fixes");
+  eq(trail[0]!.latitude, 28.6139, "latitude changed in transit");
+  eq(trail[0]!.seq, 0, "the fix lost its segment number");
+});
+
+await t("the trail time is the server clock, not the device's", () => {
+  // The device chooses capturedAt. It does not get to choose when a position
+  // is recorded as having been reported, for the same reason it does not get
+  // to supply the hash.
+  const store = newStore();
+  const r = store.accept({
+    sessionId: SID, seq: 0, body: audio(64), mime: "audio/m4a",
+    capturedAt: "1999-01-01T00:00:00.000Z", latitude: 1, longitude: 2,
+  });
+  assert(r.ok, "upload refused");
+  eq(store.trail(SID)[0]!.at, r.chunk.receivedAt, "trail used the device clock");
+});
+
+await t("a chunk uploaded without a fix contributes nothing to the trail", () => {
+  const store = newStore();
+  store.accept({ sessionId: SID, seq: 0, body: audio(64), mime: "audio/m4a", capturedAt: null, latitude: null, longitude: null });
+  eq(store.trail(SID).length, 0, "a null position became a fix at (0,0)");
+});
+
+await t("deleting the session takes the trail with the audio", () => {
+  // Derived from the manifest rather than stored separately, so there is no
+  // second place a position has to be swept from and no way for one to
+  // outlive the recording it belongs to.
+  const store = newStore();
+  put(store, 0, audio(64));
+  assert(store.trail(SID).length === 1, "no fix to start with");
+  store.remove(SID);
+  eq(store.trail(SID).length, 0, "a position outlived its audio");
+});
+
+await t("an unknown session has an empty trail, not an error", () => {
+  eq(newStore().trail(SID2).length, 0, "threw or returned something odd");
+});
+
+/* ------------------------------------------------------------------ */
 rmSync(root, { recursive: true, force: true });
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail > 0 ? 1 : 0);

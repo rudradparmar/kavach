@@ -1,5 +1,8 @@
 import { authHeaders } from "./auth";
-import type { CorpusPayload, Health, IncidentPacket, SessionCreated, Speaker, TurnResult } from "./types";
+import type {
+  CorpusPayload, DebriefResponse, EscalationResult, Health, IncidentPacket,
+  OfficerResult, PacketSupplement, SessionCreated, Speaker, TurnResult,
+} from "./types";
 
 /**
  * The engine client. Thin on purpose.
@@ -12,7 +15,14 @@ import type { CorpusPayload, Health, IncidentPacket, SessionCreated, Speaker, Tu
 
 /** A hung request is worse than a failed one — the user is standing at a
  *  checkpoint watching a spinner. Fail fast enough to say something useful. */
-const TIMEOUT_MS = { health: 4_000, session: 8_000, turn: 20_000, corpus: 15_000, packet: 20_000 } as const;
+const TIMEOUT_MS = {
+  health: 4_000, session: 8_000, turn: 20_000, corpus: 15_000, packet: 20_000,
+  // Officer details are typed while standing in front of the officer. A slow
+  // save that blocks the form is worse than a fast failure the user retries.
+  officer: 8_000,
+  escalation: 15_000,
+  debrief: 10_000,
+} as const;
 
 export class EngineError extends Error {
   constructor(
@@ -138,6 +148,158 @@ export async function getPacketMarkdown(baseUrl: string, sessionId: string, toke
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * The packet with the evidence service's own records folded in (PRD R8).
+ *
+ * The engine cannot reach the evidence service and should not be able to —
+ * the two are separately deployable and that separation is the safety
+ * argument. The client holds a capability for both, so it is the only place
+ * the location trail and the media manifest can be joined to the transcript,
+ * and the packet labels them as supplied rather than observed.
+ */
+export function buildPacketJson(
+  baseUrl: string,
+  sessionId: string,
+  supplement: PacketSupplement,
+  token: string | null,
+): Promise<IncidentPacket> {
+  return request<IncidentPacket>(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/packet?format=json`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders(token) },
+      body: JSON.stringify(supplement),
+    },
+    TIMEOUT_MS.packet,
+  );
+}
+
+/** The same packet as print-ready HTML — what `expo-print` turns into a PDF. */
+export async function getPacketHtml(
+  baseUrl: string,
+  sessionId: string,
+  supplement: PacketSupplement,
+  token: string | null,
+): Promise<string> {
+  const url = `${baseUrl}/session/${encodeURIComponent(sessionId)}/packet?format=html`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS.packet);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "content-type": "application/json", ...authHeaders(token) },
+      body: JSON.stringify(supplement),
+    });
+    if (!res.ok) throw new EngineError(`Engine returned ${res.status} for the packet.`, "http", res.status);
+    return await res.text();
+  } catch (e) {
+    if (e instanceof EngineError) throw e;
+    const aborted = (e as Error)?.name === "AbortError";
+    throw new EngineError(
+      aborted ? "The packet took too long to build." : `Could not reach the engine at ${baseUrl}.`,
+      aborted ? "timeout" : "network",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Officer details (PRD R11)                                            */
+/* ------------------------------------------------------------------ */
+
+export interface OfficerFields {
+  id?: string;
+  name?: string | null;
+  buckleNumber?: string | null;
+  rank?: string | null;
+  station?: string | null;
+  vehicleNumber?: string | null;
+  unit?: string | null;
+  description?: string | null;
+}
+
+/** Create or correct one officer record. Sending `id` corrects it in place. */
+export function saveOfficer(
+  baseUrl: string,
+  sessionId: string,
+  fields: OfficerFields,
+  token: string | null,
+): Promise<OfficerResult> {
+  return request<OfficerResult>(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/officer`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders(token) },
+      body: JSON.stringify(fields),
+    },
+    TIMEOUT_MS.officer,
+  );
+}
+
+export function deleteOfficer(
+  baseUrl: string,
+  sessionId: string,
+  officerId: string,
+  token: string | null,
+): Promise<{ removed: boolean; officers: OfficerResult["officers"] }> {
+  return request(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/officer/${encodeURIComponent(officerId)}`,
+    { method: "DELETE", headers: authHeaders(token) },
+    TIMEOUT_MS.officer,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Escalation and debrief (PRD R9, R13)                                 */
+/* ------------------------------------------------------------------ */
+
+export function getEscalation(
+  baseUrl: string,
+  sessionId: string,
+  token: string | null,
+  timeZone?: string,
+): Promise<EscalationResult> {
+  const q = timeZone ? `?tz=${encodeURIComponent(timeZone)}` : "";
+  return request<EscalationResult>(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/escalation${q}`,
+    { method: "GET", headers: authHeaders(token) },
+    TIMEOUT_MS.escalation,
+  );
+}
+
+export function getDebrief(baseUrl: string, sessionId: string, token: string | null): Promise<DebriefResponse> {
+  return request<DebriefResponse>(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/debrief`,
+    { method: "GET", headers: authHeaders(token) },
+    TIMEOUT_MS.debrief,
+  );
+}
+
+export function submitDebriefAnswers(
+  baseUrl: string,
+  sessionId: string,
+  answers: Record<string, string>,
+  token: string | null,
+): Promise<DebriefResponse> {
+  return request<DebriefResponse>(
+    baseUrl,
+    `/session/${encodeURIComponent(sessionId)}/debrief`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders(token) },
+      body: JSON.stringify({ answers }),
+    },
+    TIMEOUT_MS.debrief,
+  );
 }
 
 /**

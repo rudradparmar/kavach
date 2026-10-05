@@ -1,0 +1,361 @@
+{
+  "_note": "PRD R9. Same rules as every other corpus file: nothing here is generated at runtime, nothing here has been read by an advocate, and the engine fills a draft by substitution only — it never writes prose about the incident. A placeholder the session cannot fill becomes a visible blank for the user to complete, never an invented value.",
+  "placeholders": [
+    { "token": "{{complainantName}}", "filledBy": "the user", "note": "Never known to the engine. Always a blank." },
+    { "token": "{{complainantAddress}}", "filledBy": "the user", "note": "Never known to the engine. Always a blank." },
+    { "token": "{{date}}", "filledBy": "session start date" },
+    { "token": "{{time}}", "filledBy": "session start time" },
+    { "token": "{{place}}", "filledBy": "first location fix, when the client supplied a trail" },
+    { "token": "{{officerName}}", "filledBy": "officer record (PRD R11)" },
+    { "token": "{{officerBuckle}}", "filledBy": "officer record (PRD R11)" },
+    { "token": "{{officerStation}}", "filledBy": "officer record (PRD R11)" },
+    { "token": "{{officerVehicle}}", "filledBy": "officer record (PRD R11)" },
+    { "token": "{{scenarioTitles}}", "filledBy": "corpus titles of the scenarios traversed" },
+    { "token": "{{flagsSummary}}", "filledBy": "corpus statements of the flags raised" },
+    { "token": "{{evidenceSummary}}", "filledBy": "counts from the media bundle, when the client supplied one" },
+    { "token": "{{sessionRef}}", "filledBy": "session id" },
+    { "token": "{{whatHappened}}", "filledBy": "the user", "note": "Deliberately a blank. The engine does not narrate an incident into a complaint." }
+  ],
+  "routes": [
+    {
+      "id": "station-written-complaint",
+      "title": "Written complaint to the police station",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": [],
+      "appliesToFlagIds": [],
+      "authority": {
+        "name": "The station house officer of the police station concerned",
+        "level": "station",
+        "howToReach": [
+          "Hand a written complaint in at the station and ask for an acknowledgement with a date stamp on your copy.",
+          "Send the same complaint by registered post to the station address, and keep the posting receipt.",
+          "Many state police forces accept a written complaint through their own online portal; keep the reference number it gives you."
+        ],
+        "remit": "The station can record the complaint and act on it internally. It is the first rung, and a dated acknowledgement from it is what every later authority will ask you for."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus. Earlier is materially better: memory fades, duty rosters and CCTV are overwritten, and a same-week complaint is harder to characterise as an afterthought."
+      },
+      "requiredContents": [
+        "Date, time and exact place of the incident.",
+        "The officer's name, buckle number, rank or vehicle number — whatever was recorded.",
+        "A plain account of what happened, in the order it happened.",
+        "What you are asking the authority to do.",
+        "A list of what evidence exists and where it is held.",
+        "Your name, address and a contact number."
+      ],
+      "cautions": [
+        "Keep a signed copy of everything you hand over.",
+        "State only what you saw and heard. An account that overstates is easier to set aside than one that understates.",
+        "Do not describe the law in the complaint. Describe the conduct and let the authority apply the law."
+      ],
+      "provisionIds": [],
+      "draftTemplate": "To,\nThe Station House Officer\n{{officerStation}}\n\nSubject: Complaint regarding the conduct of a police officer on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, wish to place on record the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was stopped by a police officer.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Station: {{officerStation}}\n  Vehicle number: {{officerVehicle}}\n\nWhat happened:\n{{whatHappened}}\n\nThe encounter was recorded using an assistance application. Its internal reference is {{sessionRef}}.\n{{evidenceSummary}}\n\nI request that this complaint be registered and that I be given an acknowledgement bearing a date.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. The authority, the routes in and the deadline wording all need an advocate to confirm them, and the draft needs reviewing for anything that could prejudice the complainant."
+      }
+    },
+    {
+      "id": "senior-officer-escalation",
+      "title": "Escalation to a senior officer in the district",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": [],
+      "appliesToFlagIds": [],
+      "authority": {
+        "name": "The Superintendent of Police for the district, or the Commissioner of Police where the city has a commissionerate",
+        "level": "district",
+        "howToReach": [
+          "Deliver the complaint to the district office and take a dated acknowledgement.",
+          "Send it by registered post and keep the receipt.",
+          "Most states operate a public grievance portal that routes to this office; keep the reference number."
+        ],
+        "remit": "This office supervises the stations under it and can order an internal enquiry. It is the usual next step when a station-level complaint goes unacknowledged."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus. Sending this at the same time as the station complaint, rather than after waiting, costs nothing and starts both clocks together."
+      },
+      "requiredContents": [
+        "Everything the station complaint contained.",
+        "The date the station complaint was handed in, and its acknowledgement number if one was given.",
+        "What has happened since, including silence.",
+        "What you are asking this office to do."
+      ],
+      "cautions": [
+        "Attach a copy of the station complaint rather than rewriting it differently — two accounts that differ in detail weaken both.",
+        "Keep the tone factual. This is read by someone deciding whether to open an enquiry."
+      ],
+      "provisionIds": [],
+      "draftTemplate": "To,\nThe Superintendent of Police / Commissioner of Police\n[district or city]\n\nSubject: Complaint regarding the conduct of a police officer on {{date}}, and request for enquiry\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, submit the following for your consideration.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was stopped by a police officer attached to {{officerStation}}.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Vehicle number: {{officerVehicle}}\n\nWhat happened:\n{{whatHappened}}\n\nThe encounter was of the following kind or kinds: {{scenarioTitles}}\n\nConcerns recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding. I place them before you only so that the enquiry knows what to look for.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nA complaint on the same facts was submitted to the station on [date]. Its acknowledgement number is [number, if given].\n\nI request an enquiry into the conduct described above, and an acknowledgement of this complaint.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. Office titles vary between commissionerate and district systems and must be confirmed per state before this is shown to anyone."
+      }
+    },
+    {
+      "id": "bribe-demand",
+      "title": "Complaint about a demand for money",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": ["cash-demanded"],
+      "appliesToFlagIds": ["cash-without-receipt"],
+      "authority": {
+        "name": "The state anti-corruption bureau or vigilance body, and the police department's own vigilance wing",
+        "level": "state",
+        "howToReach": [
+          "Most states operate an anti-corruption helpline and an online complaint form; the helpline number is published on the state police website.",
+          "The Central Vigilance Commission takes complaints against central government servants through its own portal.",
+          "A written complaint can also go to the district senior officer at the same time."
+        ],
+        "remit": "These bodies investigate demands for money by public servants. They generally want the demand described precisely: who asked, for how much, in what words, and in front of whom."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus. These complaints depend heavily on contemporaneous material, so the value of the record falls quickly with time."
+      },
+      "requiredContents": [
+        "The amount asked for, and the exact words used, as closely as you can recall them.",
+        "Whether any official receipt or challan was offered before the amount was mentioned.",
+        "Date, time, place, and the officer's identifying details.",
+        "Whether anyone else was present.",
+        "What evidence exists, including any recording, and where it is held."
+      ],
+      "cautions": [
+        "Do not pay anything in order to build evidence. Complaint bodies have their own procedures for that and doing it on your own can put you in the wrong.",
+        "Describe the demand, not your conclusion about it. 'He asked for two thousand rupees and did not mention a challan' carries further than a label.",
+        "If a challan was eventually issued, say so. Leaving it out and having it surface later damages everything else you said."
+      ],
+      "provisionIds": ["MVA-200"],
+      "draftTemplate": "To,\nThe Anti-Corruption Bureau / Vigilance Officer\n[state]\n\nSubject: Complaint regarding a demand for money by a police officer on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, state the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was stopped by a police officer attached to {{officerStation}}.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Vehicle number: {{officerVehicle}}\n\nWhat was said and done:\n{{whatHappened}}\n\nNotes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nI request that this be enquired into and that I be told the outcome.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. Which body has jurisdiction depends on the state and on whether the officer is a state or central government servant. Needs counsel and a per-state table before use."
+      }
+    },
+    {
+      "id": "detention-and-arrest",
+      "title": "Complaint about how a detention or arrest was carried out",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": ["come-to-station", "arrest-now"],
+      "appliesToFlagIds": ["custody-without-status", "arrest-without-grounds", "arrest-relative-not-informed"],
+      "authority": {
+        "name": "The district senior police officer, the state human rights commission, and — where a person is still held — the court having jurisdiction",
+        "level": "state",
+        "howToReach": [
+          "A written complaint to the district senior officer, with a dated acknowledgement.",
+          "The state human rights commission accepts complaints in writing and, in most states, online.",
+          "Where someone is still in custody, an advocate should be contacted immediately rather than a complaint being posted."
+        ],
+        "remit": "These bodies look at how a detention was carried out: whether the person was told what was happening, whether a family member was informed, and what was recorded at the time."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus, and human rights commissions commonly apply a limitation period of their own. Treat this as urgent rather than as something with time on it — and if anyone is still held, this document is not the right instrument at all."
+      },
+      "requiredContents": [
+        "When the person was first stopped and when they were first told they were being taken anywhere.",
+        "Whether they were told they were under arrest, and in what words.",
+        "Whether any written notice or paper was given, and whether a copy was kept.",
+        "Whether a family member or friend was informed, by whom, and when.",
+        "Where the person was taken and how long they were held.",
+        "The officer's identifying details and the names of anyone else present."
+      ],
+      "cautions": [
+        "If the person is still in custody, contact an advocate first. A posted complaint does not help someone who is still held.",
+        "Timings matter more than adjectives here. Write down the clock times you are sure of and mark the ones you are estimating.",
+        "Do not state a legal conclusion about the arrest. Set out what was said and what was not said."
+      ],
+      "provisionIds": ["BNSS-35", "BNSS-35-3", "BNSS-47", "BNSS-48", "CONST-22"],
+      "draftTemplate": "To,\nThe Superintendent of Police / Commissioner of Police\n[district or city]\nCopy to: The State Human Rights Commission, [state]\n\nSubject: Complaint regarding a detention on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, state the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was stopped by a police officer attached to {{officerStation}}.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Vehicle number: {{officerVehicle}}\n\nSequence of events, with times as accurately as I can state them:\n{{whatHappened}}\n\nThe encounter was of the following kind or kinds: {{scenarioTitles}}\n\nNotes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nI request an enquiry into how this detention was carried out and what was recorded at the time.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder, and the highest-risk route in this file. Nothing here should be shown to a person whose family member is still held without counsel first deciding whether a complaint is the right instrument at all."
+      }
+    },
+    {
+      "id": "search-and-seizure",
+      "title": "Complaint about a search, a frisk or something taken",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": ["search-frisk", "phone-demanded"],
+      "appliesToFlagIds": ["female-search-no-female-officer", "seizure-without-memo", "compelled-unlock"],
+      "authority": {
+        "name": "The district senior police officer, and the state human rights commission where the search involved a woman searched other than by a woman officer",
+        "level": "district",
+        "howToReach": [
+          "A written complaint to the district senior officer, with a dated acknowledgement.",
+          "The state human rights commission, in writing or through its portal.",
+          "A separate written request to the station for a copy of any seizure record made at the time."
+        ],
+        "remit": "These bodies look at whether a search was carried out in the manner the procedure requires, and whether what was taken was recorded and receipted."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus. Ask for a copy of any seizure record early — a request made weeks later is answered differently from one made the same week."
+      },
+      "requiredContents": [
+        "What was searched: person, bag, vehicle, phone.",
+        "Who carried out the search, and whether a woman officer was present where one was needed.",
+        "Everything that was taken, item by item, with any serial or registration numbers.",
+        "Whether a list or memo was made, whether you were given a copy, and who signed it.",
+        "Whether you were asked to unlock a device, and what you said.",
+        "The names of any witnesses present."
+      ],
+      "cautions": [
+        "List the items exactly. An item remembered wrongly is the one the reply will be built around.",
+        "If you handed over a device, say whether it was locked or unlocked when it left your hand.",
+        "Ask for the seizure record in a separate, short letter. Mixing the request into the complaint makes it easy to answer neither."
+      ],
+      "provisionIds": ["BNSS-SEARCH-FEMALE", "BNSS-SEIZURE-MEMO", "CONST-20-3"],
+      "draftTemplate": "To,\nThe Superintendent of Police / Commissioner of Police\n[district or city]\n\nSubject: Complaint regarding a search carried out on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, state the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was stopped and searched by a police officer attached to {{officerStation}}.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Vehicle number: {{officerVehicle}}\n\nWhat was searched, by whom, and in whose presence:\n{{whatHappened}}\n\nItems taken:\n  1.\n  2.\n  3.\n\nWhether a list or memo was prepared, and whether I was given a copy: [state plainly]\n\nNotes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nI request an enquiry, and a copy of any record made at the time of the search.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. Needs counsel, and needs separate review of the wording around a woman being searched — the phrasing there has consequences for the complainant beyond the complaint."
+      }
+    },
+    {
+      "id": "vehicle-detention",
+      "title": "Complaint about a vehicle held or a challan not issued",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": ["keys-taken", "traffic-no-documents", "traffic-no-helmet"],
+      "appliesToFlagIds": ["keys-no-legal-basis", "vehicle-held-for-missing-paper"],
+      "authority": {
+        "name": "The traffic police unit concerned and the district senior officer; the transport department where the dispute is about documents",
+        "level": "district",
+        "howToReach": [
+          "A written complaint to the traffic unit that stopped you, with a dated acknowledgement.",
+          "The same complaint to the district senior officer.",
+          "Where a challan was issued and you dispute it, the route is the one printed on the challan itself — check it before writing anywhere else."
+        ],
+        "remit": "These offices can look at whether the vehicle was held on a stated ground, whether the paperwork was issued, and whether the amount taken matched what was recorded."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus for the complaint. A challan you intend to dispute carries its own timeline, printed on it — that one is real and short."
+      },
+      "requiredContents": [
+        "Vehicle registration number, and who was riding or driving.",
+        "What was said to be wrong, and what ground was given for holding the vehicle.",
+        "Whether a challan, detention memo or receipt was issued, and its number.",
+        "Any amount handed over, and what was given in return.",
+        "How long the vehicle was held and how it was released.",
+        "Officer details and the time and place."
+      ],
+      "cautions": [
+        "Check the challan for its own dispute route and time limit before sending anything anywhere else.",
+        "Keep the original of any paper you were given and send copies.",
+        "If you paid, say exactly how — cash, card, or an app — and attach whatever record exists."
+      ],
+      "provisionIds": ["MVA-200", "MVA-206", "MVA-207", "MVA-130", "MVA-158"],
+      "draftTemplate": "To,\nThe Traffic Police Unit, [area]\nCopy to: The Superintendent of Police / Commissioner of Police, [district or city]\n\nSubject: Complaint regarding a vehicle stop on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, state the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, my vehicle bearing registration number [registration number] was stopped by a police officer attached to {{officerStation}}.\n\nOfficer details as recorded at the time:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Vehicle number: {{officerVehicle}}\n\nWhat happened:\n{{whatHappened}}\n\nPaperwork issued, if any: [challan or memo number, or state that none was issued]\nAmount handed over, if any, and how: [state plainly]\n\nNotes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nI request an enquiry and a written reply.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. Challan dispute routes are set by state rules and by what is printed on the challan; this route must not imply a national procedure."
+      }
+    },
+    {
+      "id": "assembly-and-force",
+      "title": "Complaint about force used at a gathering, or an order that was not identified",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": ["protest-dispersal", "force-on-protesters"],
+      "appliesToFlagIds": ["dispersal-without-identified-order", "force-on-peaceful-assembly"],
+      "authority": {
+        "name": "The district magistrate, the district senior police officer, and the state or national human rights commission",
+        "level": "state",
+        "howToReach": [
+          "A written complaint to the district magistrate, who is usually the authority whose order was said to be in force.",
+          "The same complaint to the district senior police officer.",
+          "The state human rights commission, and the national commission where the state body does not act."
+        ],
+        "remit": "These bodies can be asked which order was actually in force, for what area and period, and can enquire into how a gathering was dispersed. A request for the order itself is often the most useful single thing in the letter."
+      },
+      "deadline": {
+        "days": null,
+        "text": "No fixed deadline is stated in this corpus, and human rights commissions commonly apply a limitation period of their own. Anyone injured should seek medical attention and keep the record of it regardless of what is decided about a complaint."
+      },
+      "requiredContents": [
+        "The area and the time, as precisely as possible.",
+        "What order was said to be in force, and whether it was read out, shown, or only referred to.",
+        "Whether a warning was given before force was used, and how much time passed.",
+        "What was done, by whom, and to whom.",
+        "Any injuries, and any medical record of them.",
+        "Names and contacts of witnesses, and what other recordings exist."
+      ],
+      "cautions": [
+        "Get medical attention for any injury and keep the record. It is evidence, and it matters more than the complaint's wording.",
+        "Ask for a copy of the order that was said to be in force. That request alone is often the most useful line in the letter.",
+        "Keep the account to what you personally saw. A crowd account assembled from others is easy to set aside."
+      ],
+      "provisionIds": ["BNSS-163", "CONST-19-1-B", "CONST-21"],
+      "draftTemplate": "To,\nThe District Magistrate, [district]\nCopy to: The Superintendent of Police / Commissioner of Police, [district or city]\nCopy to: The State Human Rights Commission, [state]\n\nSubject: Complaint regarding the dispersal of a gathering on {{date}}, and request for a copy of the order said to be in force\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, state the following.\n\nOn {{date}} at approximately {{time}}, at {{place}}, I was part of a gathering that was dispersed by police.\n\nOfficer details as recorded at the time, so far as they could be recorded:\n  Name: {{officerName}}\n  Buckle number: {{officerBuckle}}\n  Station: {{officerStation}}\n  Vehicle number: {{officerVehicle}}\n\nWhat happened, in the order it happened:\n{{whatHappened}}\n\nInjuries, and any medical attention obtained: [state plainly, and attach the record]\n\nNotes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n{{evidenceSummary}}\nInternal reference of the recording: {{sessionRef}}\n\nI request: a copy of the order said to have been in force at that place and time, including the area and period it covered; and an enquiry into how the gathering was dispersed.\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. Which office issued the order varies; the route must be confirmed per state, and the wording reviewed for anything that exposes the complainant to a counter-allegation."
+      }
+    },
+    {
+      "id": "human-rights-commission",
+      "title": "Complaint to a human rights commission",
+      "jurisdiction": "IN-CENTRAL",
+      "appliesToScenarioIds": [],
+      "appliesToFlagIds": ["arrest-without-grounds", "arrest-relative-not-informed", "female-search-no-female-officer", "force-on-peaceful-assembly"],
+      "authority": {
+        "name": "The state human rights commission, and the National Human Rights Commission",
+        "level": "national",
+        "howToReach": [
+          "The National Human Rights Commission accepts complaints in writing and through its own online portal.",
+          "Every state with a commission accepts them the same two ways; the state body is usually the right first stop.",
+          "No fee is charged, and a complaint may be made in any language the commission accepts."
+        ],
+        "remit": "A commission can call for reports from the authority concerned and make recommendations. It is not a court and does not award compensation as a matter of course, so treat it as one route among several rather than the whole plan."
+      },
+      "deadline": {
+        "days": null,
+        "text": "Commissions commonly apply a limitation period of their own, counted from the date of the incident, and this corpus does not state it. Confirm the current period on the commission's own site before relying on any date."
+      },
+      "requiredContents": [
+        "Your name and address, and the name of the authority complained against.",
+        "Date, time and place of the incident.",
+        "A short, factual account, in the order things happened.",
+        "What relief you are asking for.",
+        "Whether the same facts are already before a court or another commission — this is asked, and answering it wrongly can end the complaint.",
+        "Copies of anything you have: photographs, medical records, acknowledgements."
+      ],
+      "cautions": [
+        "Say honestly whether the matter is already before a court. A complaint that hides this is generally closed.",
+        "Keep the account short and dated. Commissions work from the paper in front of them.",
+        "Send copies, never originals."
+      ],
+      "provisionIds": ["CONST-21", "CONST-22"],
+      "draftTemplate": "To,\nThe Secretary\nState Human Rights Commission, [state]\n(Copy to the National Human Rights Commission, New Delhi)\n\nSubject: Complaint regarding the conduct of police officials on {{date}}\n\nSir / Madam,\n\nI, {{complainantName}}, resident of {{complainantAddress}}, submit this complaint.\n\n1. Authority complained against: police officials attached to {{officerStation}}.\n2. Date and time of incident: {{date}}, at approximately {{time}}.\n3. Place: {{place}}.\n4. Officer details recorded at the time: {{officerName}}, buckle number {{officerBuckle}}, vehicle number {{officerVehicle}}.\n\n5. Account:\n{{whatHappened}}\n\n6. Notes recorded at the time by the assistance application I was using:\n{{flagsSummary}}\n\nThese are the application's own notes and are not a legal finding.\n\n7. Evidence: {{evidenceSummary}} Internal reference of the recording: {{sessionRef}}\n\n8. Whether these facts are pending before any court or other commission: [answer plainly]\n\n9. Relief sought: [state what you are asking the commission to do]\n\nYours faithfully,\n{{complainantName}}\nDate:\nContact number:\n",
+      "verification": {
+        "status": "unverified",
+        "advocate": null,
+        "signedOffAt": null,
+        "reviewDueAt": null,
+        "notes": "Structural placeholder. The limitation period and the pending-proceedings question are both things a complainant can lose the complaint on; both need counsel and a current check against the commission's own rules."
+      }
+    }
+  ]
+}

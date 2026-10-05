@@ -57,6 +57,14 @@ export interface ChunkRecord {
   longitude: number | null;
 }
 
+/** One position fix, as it was recorded alongside a chunk (PRD R4, R8). */
+export interface TrailFix {
+  seq: number;
+  at: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface Manifest {
   sessionId: string;
   firstReceivedAt: string | null;
@@ -250,6 +258,27 @@ export class EvidenceStore {
    * service already holds. A phone that comes back from being switched off can
    * then upload only what was never acknowledged.
    */
+  /**
+   * The location trail (PRD R8, "location trail").
+   *
+   * Derived from the manifest rather than stored separately, so a fix cannot
+   * outlive the audio it was taken with — deleting a session takes both, and
+   * there is no second place a position has to be swept from.
+   *
+   * `at` is the **server receipt time**, not the device clock, for the same
+   * reason the hash is recomputed here: the one timestamp the uploader cannot
+   * choose is the one worth anything later.
+   */
+  trail(sessionId: string): TrailFix[] {
+    const m = this.readManifest(sessionId);
+    if (!m) return [];
+    return m.chunks
+      .filter((c): c is typeof c & { latitude: number; longitude: number } =>
+        typeof c.latitude === "number" && typeof c.longitude === "number")
+      .map((c) => ({ seq: c.seq, at: c.receivedAt, latitude: c.latitude, longitude: c.longitude }))
+      .sort((a, b) => a.seq - b.seq);
+  }
+
   acknowledgedSeqs(sessionId: string): number[] {
     return (this.readManifest(sessionId)?.chunks ?? []).map((c) => c.seq).sort((a, b) => a - b);
   }

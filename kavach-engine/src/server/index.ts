@@ -1,6 +1,12 @@
 import http from "node:http";
 import { Session } from "../engine/session.js";
-import { buildPacket, packetToMarkdown } from "../engine/summary.js";
+import { buildPacket, escalationToMarkdown, packetToHtml, packetToMarkdown } from "../engine/summary.js";
+import { buildEscalation } from "../engine/escalation.js";
+import { guardEscalation } from "../engine/guard.js";
+import { debriefState, submitDebrief } from "../engine/debrief.js";
+import { isEmptyOfficer, removeOfficer, upsertOfficer, type OfficerInput } from "../engine/officers.js";
+import { describeReview, reviewCorpus } from "../engine/review.js";
+import type { PacketSupplement } from "../types.js";
 import { makeProviderAsync } from "../llm/anthropic.js";
 import { loadCorpus } from "../corpus/loader.js";
 import { SessionStore } from "./store.js";
@@ -18,11 +24,18 @@ import type { LlmProvider } from "../llm/provider.js";
 /**
  * The surface the Expo client talks to. Deliberately tiny.
  *
- * POST   /session            -> { sessionId }
- * POST   /session/:id/turn   -> { update, latencyMs }   body: { text, speaker? }
- * GET    /session/:id/packet -> markdown packet (?format=json for the structure)
- * DELETE /session/:id        -> permanent deletion (PRD R4)
- * GET    /corpus             -> scenarios for the offline cache (PRD R10)
+ * POST   /session                     -> { sessionId }
+ * POST   /session/:id/turn            -> { update, latencyMs }   body: { text, speaker? }
+ * GET    /session/:id/packet          -> markdown packet (?format=json|html)
+ * POST   /session/:id/packet          -> the same, with the client's location
+ *                                        trail and media manifest folded in (PRD R8)
+ * POST   /session/:id/officer         -> record or correct officer details (PRD R11)
+ * DELETE /session/:id/officer/:oid    -> remove one officer record
+ * GET    /session/:id/escalation      -> complaint routes and drafts (PRD R9)
+ * GET    /session/:id/debrief         -> questions and the 24h window (PRD R13)
+ * POST   /session/:id/debrief         -> answers, appended to the packet
+ * DELETE /session/:id                 -> permanent deletion (PRD R4)
+ * GET    /corpus                      -> everything the offline cache needs (PRD R10, R12)
  * GET    /health
  *
  * Sessions are persisted to disk so that a restart does not take the lawyer
@@ -110,11 +123,23 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       const c = loadCorpus();
+      const review = reviewCorpus(c);
       return json(res, 200, {
         ok: true, provider: provider.name, corpusVersion: c.meta.corpusVersion,
         corpusStatus: c.meta.status, scenarios: c.scenarios.size, rules: c.rules.length,
         sessions: sessions.size,
         persistence: store.enabled ? { retentionDays: store.retentionDays } : false,
+        languages: c.languages.languages.map((l) => l.code),
+        escalationRoutes: c.escalation.routes.length,
+        // PRD R6 wants staleness visible in-product, so it is on the one
+        // endpoint every client already calls rather than behind a flag.
+        corpusReview: {
+          overdue: review.overdue.length,
+          dueSoon: review.dueSoon.length,
+          neverReviewed: review.neverReviewed,
+          total: review.total,
+          reviewIntervalDays: review.reviewIntervalDays,
+        },
       });
     }
 
@@ -130,6 +155,15 @@ const server = http.createServer(async (req, res) => {
         scenarios: [...c.scenarios.values()],
         fallback: c.fallback,
         provisions: [...c.provisions.values()],
+        // Everything below is cached on the device too. The offline cards are
+        // not the only thing that has to work with no signal: a person filling
+        // in a buckle number at the roadside, or writing a complaint on a train
+        // afterwards, is in exactly the same position (PRD R10).
+        languages: c.languages,
+        escalation: c.escalation,
+        debrief: c.debrief,
+        officerCapture: c.officerCapture,
+        review: reviewCorpus(c),
       });
     }
 
@@ -195,12 +229,99 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, r);
       }
 
-      if (req.method === "GET" && parts[2] === "packet") {
-        const p = await buildPacket(s.state, provider);
-        if (url.searchParams.get("format") === "json") return json(res, 200, p);
+      if (parts[2] === "packet" && (req.method === "GET" || req.method === "POST")) {
+        /**
+         * The location trail and the media manifest live in the evidence
+         * service, and this process deliberately cannot reach it — the two
+         * are separately deployable and an advocate reading `kavach-engine/`
+         * should find no dependency on where audio is kept.
+         *
+         * So the client, which holds a capability for both, POSTs them in
+         * and the packet labels them as supplied rather than observed. A GET
+         * still works and renders those sections as "not supplied", which is
+         * a different statement from "none exists" and reads as one.
+         */
+        let supplement: PacketSupplement = {};
+        if (req.method === "POST") {
+          const body = JSON.parse((await readBody(req)) || "{}") as PacketSupplement;
+          supplement = {
+            locationTrail: Array.isArray(body.locationTrail) ? body.locationTrail : undefined,
+            mediaBundle: body.mediaBundle && Array.isArray(body.mediaBundle.chunks) ? body.mediaBundle : undefined,
+          };
+        }
+        const p = await buildPacket(s.state, provider, supplement);
+        const format = url.searchParams.get("format");
+        if (format === "json") return json(res, 200, p);
+        if (format === "html") {
+          // PRD R8 asks for a PDF. The engine emits print-ready HTML and
+          // whatever prints it supplies the fonts — see packetToHtml for why
+          // a PDF written here would silently drop Indic text.
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8", ...CORS });
+          return res.end(packetToHtml(p));
+        }
         const md = packetToMarkdown(p);
         res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", ...CORS });
         return res.end(md);
+      }
+
+      /* --- officer details (PRD R11) --------------------------------- */
+
+      if (req.method === "POST" && parts[2] === "officer") {
+        const body = JSON.parse((await readBody(req)) || "{}") as OfficerInput & { id?: string };
+        const { id, ...fields } = body;
+        // An entirely empty submission is a mistake, not a record. Storing it
+        // would put a row of dashes in a lawyer's packet.
+        if (!id && isEmptyOfficer(fields)) return json(res, 400, { error: "no officer detail supplied" });
+        const record = upsertOfficer(s.state, fields, id);
+        store.save(s.state);
+        return json(res, id ? 200 : 201, { officer: record, officers: s.state.officers });
+      }
+
+      if (req.method === "DELETE" && parts[2] === "officer" && parts[3]) {
+        const removed = removeOfficer(s.state, parts[3]);
+        if (removed) store.save(s.state);
+        return json(res, removed ? 200 : 404, { removed, officers: s.state.officers });
+      }
+
+      /* --- escalation guidance (PRD R9) ------------------------------- */
+
+      if (req.method === "GET" && parts[2] === "escalation") {
+        const c = loadCorpus();
+        const guidance = buildEscalation(c, s.state, {
+          timeZone: url.searchParams.get("tz") ?? undefined,
+        });
+        // Same three checks as live guidance. A complaint letter is read by an
+        // authority rather than said to an officer, but an invented section
+        // number in it is wrong in exactly the same way — and unlike a turn,
+        // there is nothing safe to degrade to, so a tripped route is withheld.
+        const checked = guardEscalation(c, guidance);
+        guidance.options = checked.kept;
+        if (url.searchParams.get("format") === "md") {
+          res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", ...CORS });
+          return res.end(escalationToMarkdown(guidance));
+        }
+        // `withheld` is returned rather than dropped: a route missing without
+        // explanation looks like the corpus has nothing to offer, when in fact
+        // the corpus has something wrong with it that someone must fix.
+        return json(res, 200, { guidance, violations: checked.violations, withheld: checked.withheld });
+      }
+
+      /* --- post-incident debrief (PRD R13) ---------------------------- */
+
+      if (req.method === "GET" && parts[2] === "debrief") {
+        const c = loadCorpus();
+        return json(res, 200, { ...debriefState(c, s.state), intro: c.debrief.intro });
+      }
+
+      if (req.method === "POST" && parts[2] === "debrief") {
+        const c = loadCorpus();
+        const body = JSON.parse((await readBody(req)) || "{}") as { answers?: Record<string, string> };
+        if (!body.answers || typeof body.answers !== "object") {
+          return json(res, 400, { error: "answers object required" });
+        }
+        const result = submitDebrief(c, s.state, { answers: body.answers });
+        store.save(s.state);
+        return json(res, 200, { ...result.state, intro: c.debrief.intro, rejected: result.rejected });
       }
 
       // PRD R4: the user can permanently delete a session's evidence.
@@ -252,6 +373,8 @@ makeProviderAsync().then((p) => {
     if (sweeper && sweeper.sweptAtBoot > 0) {
       console.log(`  swept ${sweeper.sweptAtBoot} session(s) past retention at boot`);
     }
+    console.log(`  ${describeReview(reviewCorpus(c))}`);
+    console.log(`  languages: ${c.languages.languages.map((l) => l.code).join(", ")} · ${c.escalation.routes.length} escalation route(s)`);
     if (c.meta.status !== "counsel-signed-off") {
       console.log("\n  !! CORPUS IS UNVERIFIED — engineering use only. Do not put this in front of a user.\n");
     }

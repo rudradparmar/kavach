@@ -1,0 +1,62 @@
+{
+  "_note": "PRD R11. Prompts only — the client renders these verbatim and stores what the user types. Nothing here is inferred from the transcript and nothing ever should be: a guessed name in an advocate's packet looks like evidence.",
+  "intro": "Record what you can see now. A buckle number written down at the roadside is worth more than a name remembered next week — and if you can only get one thing, get that.",
+  "fields": [
+    {
+      "field": "buckleNumber",
+      "label": "Buckle number",
+      "hint": "The number on the metal plate or shoulder tag",
+      "why": "The most reliable way to identify an officer later, and the detail most often missing from a complaint.",
+      "priority": 1,
+      "keyboard": "default"
+    },
+    {
+      "field": "name",
+      "label": "Name",
+      "hint": "As given, or as printed on the name tag",
+      "why": "Useful, but names are common and sometimes given loosely. It supports the buckle number rather than replacing it.",
+      "priority": 2,
+      "keyboard": "default"
+    },
+    {
+      "field": "station",
+      "label": "Police station",
+      "hint": "The station they said they are from",
+      "why": "Decides where a written complaint goes first, and which senior office supervises it.",
+      "priority": 3,
+      "keyboard": "default"
+    },
+    {
+      "field": "vehicleNumber",
+      "label": "Police vehicle number",
+      "hint": "Registration on the jeep, van or bike",
+      "why": "Ties the encounter to a duty roster even when nobody gave a name.",
+      "priority": 4,
+      "keyboard": "default"
+    },
+    {
+      "field": "rank",
+      "label": "Rank",
+      "hint": "Constable, head constable, sub-inspector, inspector — or the stars if you can only see those",
+      "why": "Narrows who it was, and some procedures turn on the rank of the officer carrying them out.",
+      "priority": 5,
+      "keyboard": "default"
+    },
+    {
+      "field": "unit",
+      "label": "Unit or wing",
+      "hint": "Traffic, local police, armed reserve, something written on the vehicle",
+      "why": "Traffic and local police are supervised by different offices, so this can change where the complaint goes.",
+      "priority": 6,
+      "keyboard": "default"
+    },
+    {
+      "field": "description",
+      "label": "Anything else you can see",
+      "hint": "How many of them, what they were wearing, anything distinctive",
+      "why": "When there is no number and no name, this is what is left. Write it while you can still see them.",
+      "priority": 7,
+      "keyboard": "default"
+    }
+  ]
+}

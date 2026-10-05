@@ -7,15 +7,28 @@ import type { FactKey, TranscriptTurn } from "../types.js";
  * content, and the tool schema gives it nowhere to put any. It returns a
  * scenario id from a fixed enum and facts from a fixed key list. That is all.
  */
+/**
+ * The model is configuration, not code. It was hardcoded, which meant a
+ * retired model id could only be replaced by a code change and redeploy —
+ * and the failure would surface as every turn erroring at a police stop.
+ * Set KAVACH_ANTHROPIC_MODEL to move; the default tracks the current Sonnet.
+ */
+export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+
 export class AnthropicProvider implements LlmProvider {
-  readonly name = "anthropic";
+  /** Carries the model id so /health, replay and the packet record which model perceived the encounter. */
+  readonly name: string;
   private client: Anthropic;
   private model: string;
 
-  constructor(apiKey = process.env.ANTHROPIC_API_KEY, model = "claude-sonnet-4-5") {
+  constructor(
+    apiKey = process.env.ANTHROPIC_API_KEY,
+    model = process.env.KAVACH_ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL,
+  ) {
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY missing. Use KAVACH_LLM_PROVIDER=mock for offline runs.");
     this.client = new Anthropic({ apiKey });
     this.model = model;
+    this.name = `anthropic:${model}`;
   }
 
   async extract(input: ExtractionInput): Promise<ExtractionResult> {
@@ -58,6 +71,8 @@ export class AnthropicProvider implements LlmProvider {
       "- Report a fact ONLY if a specific phrase in the transcript justifies it. Put that phrase in `evidence` verbatim.",
       "- If you are inferring rather than reading, do not report the fact. An unreported fact is safe; a wrong fact fires a false accusation of misconduct.",
       "- Report a fact only if it is new or has changed from the known values given.",
+      "- A question or a request is not evidence of a fact. \"Why am I being arrested?\" does NOT establish groundsGiven=no; \"Let me call my family\" does NOT establish relativeInformed=no. Report `no` only from an explicit statement that it has not happened or is being prevented.",
+      "- Watch negation: \"I am not under arrest\" is arrestAsserted=no; \"no receipt\" is formalChallanOffered=no. A fact reported backwards is worse than one not reported.",
       "- Set confidence below 0.5 whenever the situation is ambiguous. Low confidence is a correct answer.",
       "- Transcripts are noisy, code-mixed Hindi/English, and often incomplete.",
       "",

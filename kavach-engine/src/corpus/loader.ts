@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CorpusMeta, Provision, Scenario } from "../types.js";
-import type { MisconductRule } from "../types.js";
+import type {
+  CorpusMeta, DebriefQuestion, EscalationRoute, LanguageEntry, LanguageCode,
+  MisconductRule, OfficerFieldPrompt, Provision, Scenario,
+} from "../types.js";
 
 /** Re-exported so existing importers keep working; defined in types.ts. */
 export type { CorpusMeta } from "../types.js";
@@ -10,12 +12,42 @@ export type { CorpusMeta } from "../types.js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CORPUS_DIR = path.resolve(HERE, "../../corpus");
 
+/** corpus/languages.json — PRD R12. */
+export interface LanguageRegistry {
+  default: LanguageCode;
+  launchPair: LanguageCode[];
+  languages: LanguageEntry[];
+}
+
+/** corpus/escalation.json — PRD R9. */
+export interface EscalationCorpus {
+  routes: EscalationRoute[];
+  placeholders: Array<{ token: string; filledBy: string; note?: string }>;
+}
+
+/** corpus/debrief.json — PRD R13. */
+export interface DebriefCorpus {
+  windowHours: number;
+  intro: string;
+  questions: DebriefQuestion[];
+}
+
+/** corpus/capture/officer-fields.json — PRD R11. */
+export interface OfficerCaptureCorpus {
+  intro: string;
+  fields: OfficerFieldPrompt[];
+}
+
 export interface Corpus {
   meta: CorpusMeta;
   provisions: Map<string, Provision>;
   scenarios: Map<string, Scenario>;
   fallback: Scenario;
   rules: MisconductRule[];
+  languages: LanguageRegistry;
+  escalation: EscalationCorpus;
+  debrief: DebriefCorpus;
+  officerCapture: OfficerCaptureCorpus;
   /** Every provision id and every section string that legitimately exists. Used by the guard. */
   groundedIds: Set<string>;
 }
@@ -31,6 +63,10 @@ export function loadCorpus(force = false): Corpus {
   const provisionList = readJson<Provision[]>(path.join(CORPUS_DIR, "provisions.json"));
   const fallback = readJson<Scenario>(path.join(CORPUS_DIR, "fallback.json"));
   const rules = readJson<MisconductRule[]>(path.join(CORPUS_DIR, "rules", "misconduct.json"));
+  const languages = readJson<LanguageRegistry>(path.join(CORPUS_DIR, "languages.json"));
+  const escalation = readJson<EscalationCorpus>(path.join(CORPUS_DIR, "escalation.json"));
+  const debrief = readJson<DebriefCorpus>(path.join(CORPUS_DIR, "debrief.json"));
+  const officerCapture = readJson<OfficerCaptureCorpus>(path.join(CORPUS_DIR, "capture", "officer-fields.json"));
 
   const scenarioDir = path.join(CORPUS_DIR, "scenarios");
   const scenarios = new Map<string, Scenario>();
@@ -48,7 +84,7 @@ export function loadCorpus(force = false): Corpus {
     groundedIds.add(p.section);
   }
 
-  cached = { meta, provisions, scenarios, fallback, rules, groundedIds };
+  cached = { meta, provisions, scenarios, fallback, rules, languages, escalation, debrief, officerCapture, groundedIds };
   return cached;
 }
 
@@ -59,4 +95,9 @@ export function scenarioOrFallback(c: Corpus, id: string | null): Scenario {
 
 export function provisionsFor(c: Corpus, ids: string[]): Provision[] {
   return ids.map((id) => c.provisions.get(id)).filter((p): p is Provision => Boolean(p));
+}
+
+/** The languages this corpus can actually speak in, in registry order. */
+export function languageCodes(c: Corpus): LanguageCode[] {
+  return c.languages.languages.map((l) => l.code);
 }

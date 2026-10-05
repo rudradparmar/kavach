@@ -36,7 +36,9 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Kavach records the encounter so your words are not lost, and so a lawyer can see what happened. Recording is always visible on screen."
+          "microphonePermission": "Kavach records the encounter so your words are not lost, and so a lawyer can see what happened. Recording is always visible on screen.",
+          "enableBackgroundRecording": true,
+          "enableBackgroundPlayback": false
         }
       ],
       [
@@ -45,7 +47,8 @@
           "locationAlwaysAndWhenInUsePermission": "Kavach includes where you are in the alert it sends to your trusted contacts, so somebody knows where to find you. Location is only read when you send an alert."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/withPanicShortcut"
     ]
   }
 }

@@ -14,6 +14,20 @@
  * The property under test is **containment**. A token for one encounter must
  * not open another, and the audio of somebody's arrest must not be reachable
  * by anyone who can guess a UUID.
+ *
+ * ## If this fails on a re-run, check for 429 before believing it
+ *
+ * This script deliberately makes about six failed-credential requests to the
+ * engine, and `shared/ratelimit.ts` charges a token for each one (capacity
+ * 20, refilling 10/minute). Run it three or four times back to back — or
+ * alongside `npm run preflight`, which makes two more — and the bucket
+ * empties. The service then answers 429 to a request this script expected to
+ * be answered 403, and two checks fail in a way that reads exactly like an
+ * auth bug.
+ *
+ * That is the limiter working. Wait a minute and re-run. The checks that fail
+ * first are the ones asserting a specific rejection status, which is why they
+ * are the ones that look alarming.
  */
 
 import { randomUUID } from "node:crypto";

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { GuidanceUpdate, Provision, RaisedFlag } from "../api/types";
+import type { GuidanceUpdate, Provision, RaisedFlag, Scenario } from "../api/types";
 import type { SpeechState } from "../tts/speech";
 import { colour, radius, space, type } from "../theme";
 import { Disclaimer } from "./Banners";
@@ -22,11 +22,19 @@ export function Guidance({
   update,
   allFlags,
   speech,
+  translationStatus,
 }: {
   update: GuidanceUpdate;
   /** Every flag raised this session, not just this turn's. */
   allFlags: RaisedFlag[];
   speech: SpeechState;
+  /**
+   * Per-language review state for this scenario's line, from the cached
+   * corpus. A GuidanceUpdate does not carry it — the update is what the
+   * engine decided this turn, and how a translation was produced is a
+   * property of the corpus, not of the turn.
+   */
+  translationStatus?: Scenario["translationStatus"];
 }) {
   return (
     <View style={s.wrap}>
@@ -34,7 +42,13 @@ export function Guidance({
 
       <FlagList flags={allFlags} />
 
-      {update.quotableLine ? <QuotableLineCard line={update.quotableLine} speech={speech} /> : null}
+      {update.quotableLine ? (
+        <QuotableLineCard
+          line={update.quotableLine}
+          speech={speech}
+          translationStatus={translationStatus}
+        />
+      ) : null}
 
       {update.doNotSay.length > 0 ? <DoNotSay items={update.doNotSay} /> : null}
 

@@ -54,6 +54,41 @@ carries the warning banner, and `npm run validate` keeps warning on every file.
 Do not remove these to tidy up the output. They come off when an advocate
 signs, not before.
 
+This now extends to escalation routes (`corpus/escalation.json`): the
+authorities, the deadlines and the drafts are placeholders under the same
+rule, and the one in `deploy` terms is `app`'s `npm run preflight`, which
+reports the corpus as a **blocker** and exits non-zero. That gate is the
+mechanism. Do not make it pass by any route other than an advocate signing.
+
+**5a. Nothing is inferred about a person.**
+Officer details (R11) are user-entered, every record says `source: "user"`,
+and the engine never reads a name, a number or a station out of a transcript.
+A guessed attribution in an advocate's packet is worse than a blank, because
+a blank is obviously a blank and a guess looks like evidence. The same rule
+governs the escalation draft: `{{whatHappened}}` is structurally unfillable
+and stays that way. The engine substitutes values from the record; it does
+not narrate an incident into a document the user signs.
+
+**5b. "Not supplied" and "none exists" are different statements.**
+The packet's location trail and media bundle come from the evidence service
+via the client — the engine cannot reach it and must not learn how. When they
+are absent the packet says *not supplied*, never *none*. An advocate looking
+at an empty media section has to be able to tell whether no audio was kept or
+no audio was handed over.
+
+**5c. A language reaches a user only by being added in three places.**
+`corpus/languages.json`, the scenario files, and `app/src/tts/languages.ts`.
+Each fails loudly on its own; the combination is what stops a language being
+half-added. A missing voice must **disable** playback, never fall through to
+the platform's substitute — Android hands Devanagari to an English engine and
+produces confident gibberish that the user then says to an officer. The same
+is true of Tamil, Telugu, Bengali and Kannada, and it is true silently.
+
+Classifier cue counts must stay balanced across scenarios (the validator
+enforces a spread of 8). A cue matched anywhere in history scores, so a
+scenario with far more cues than its neighbours wins long sessions on volume
+rather than on what was said.
+
 **6. Jurisdiction is keyed from day one.**
 Every provision and scenario carries `jurisdiction`, always `IN-CENTRAL` in v1.
 State law is out of scope but the schema must not need retrofitting.
@@ -68,4 +103,17 @@ rarely and forget about.
 - Deterministic code over model calls wherever the choice exists. The mock
   provider is the offline baseline an on-device path has to beat.
 - Every fact carries the verbatim quote that justified it. No quote, no fact.
-- Run `npm run validate` and `npm test` before considering anything done.
+- Run `npm run validate`, `npm test` and `npm run eval` before considering
+  anything done. The eval fails on any inverted fact or false flag.
+- Never tune classifier cues or fact regexes against `eval/holdout.json`. Fix
+  an inversion it finds (that is a gate), but leave its accuracy alone, or it
+  stops measuring anything.
+- A question or request is not a fact. "Why am I being arrested?" does not
+  establish `groundsGiven=no`. The mock uses `unknown`-valued shield cues for
+  this; a live provider is told the same in its prompt.
+  From the repo root, `npm run verify` runs every check that needs no server.
+- With the three services up, `app`'s `smoke`, `pipeline`, `evidence`, `auth`
+  and `afterwards` scripts drive the client's real modules. `preflight` is
+  different in kind: it asks whether the deployment is fit for the public
+  rather than whether the code works, and it is the only check that is
+  *supposed* to fail today.

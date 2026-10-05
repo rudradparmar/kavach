@@ -15,6 +15,11 @@ x-auth: &auth
   KAVACH_API_KEY: ${KAVACH_API_KEY:?set it in deploy/.env}
   KAVACH_SESSION_SECRET: ${KAVACH_SESSION_SECRET:?set it in deploy/.env}
   KAVACH_SESSION_TTL_HOURS: ${KAVACH_SESSION_TTL_HOURS:-12}
+  # Keys still accepted while a rotation is in progress, besides the current
+  # one. Empty except during the two-step rotation in deploy/.env.example —
+  # and a rotation that is never finished is a leaked key that never expires.
+  KAVACH_API_KEYS: ${KAVACH_API_KEYS:-}
+  KAVACH_SESSION_SECRETS: ${KAVACH_SESSION_SECRETS:-}
 
 services:
   engine:
@@ -31,6 +36,7 @@ services:
       # thing to deploy.
       KAVACH_LLM_PROVIDER: ${KAVACH_LLM_PROVIDER:-mock}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KAVACH_ANTHROPIC_MODEL: ${KAVACH_ANTHROPIC_MODEL:-}
       KAVACH_SESSION_DIR: /data/sessions
       KAVACH_SESSION_RETENTION_DAYS: ${KAVACH_SESSION_RETENTION_DAYS:-7}
     volumes:

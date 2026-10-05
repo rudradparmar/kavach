@@ -1,0 +1,89 @@
+{
+  "_note": "PRD R13. Asked after the encounter, within a window, and appended to the packet. Two things this file must not become: an engagement loop, and a survey. Every question either helps the advocate reading the packet or tells us whether the guidance was right — anything that does neither does not belong here.",
+  "windowHours": 24,
+  "intro": "These questions are for the record, not for us. What you write goes into the packet a lawyer reads. Answer what you can and leave the rest — a short answer written today is worth more than a full one written next week.",
+  "questions": [
+    {
+      "id": "outcome",
+      "prompt": "How did it end?",
+      "kind": "choice",
+      "choices": [
+        "Let go, nothing issued",
+        "Challan or notice issued",
+        "Money paid",
+        "Vehicle or item taken",
+        "Taken to the station",
+        "Still ongoing",
+        "Something else"
+      ],
+      "why": "The first thing an advocate asks. It also decides which complaint route is worth anything.",
+      "optional": false
+    },
+    {
+      "id": "duration",
+      "prompt": "Roughly how long did the whole encounter last?",
+      "kind": "choice",
+      "choices": ["Under 5 minutes", "5 to 15 minutes", "15 to 45 minutes", "Over an hour", "Not sure"],
+      "why": "The session only recorded the part the app was open for. The gap between the two is worth stating rather than leaving to be inferred.",
+      "optional": false
+    },
+    {
+      "id": "paperwork",
+      "prompt": "What paper, if any, did you end up with? Include any number printed on it.",
+      "kind": "text",
+      "why": "A challan or memo number is the single fastest way for anyone later to find the official record of this.",
+      "optional": true
+    },
+    {
+      "id": "money",
+      "prompt": "Was any money handed over? If so, how much, and what were you given in return?",
+      "kind": "text",
+      "why": "Asked plainly because the answer changes which authority the complaint goes to. Nothing here is judged.",
+      "optional": true
+    },
+    {
+      "id": "witnesses",
+      "prompt": "Was anyone else there who saw it? A name and a number, if you have them.",
+      "kind": "text",
+      "why": "A witness contacted a week later usually remembers. One contacted in three months usually does not.",
+      "optional": true
+    },
+    {
+      "id": "injury",
+      "prompt": "Was anyone hurt? If so, has a doctor seen them?",
+      "kind": "text",
+      "why": "A medical record made close to the event is worth more than any account of it. This asks so the question is not forgotten, not so it can be recorded here.",
+      "optional": true
+    },
+    {
+      "id": "missed",
+      "prompt": "What happened that the recording would not have caught?",
+      "kind": "text",
+      "why": "Capture stops when the screen does, and nothing in the record shows a gesture or who else was standing there.",
+      "optional": true
+    },
+    {
+      "id": "guidance-matched",
+      "prompt": "Did what the app told you match what was actually happening?",
+      "kind": "choice",
+      "choices": ["Yes, closely", "Roughly", "Not really", "No", "I did not read it at the time"],
+      "why": "The only honest measure of whether the corpus is right. A wrong answer here is more useful to us than a right one.",
+      "accuracySignal": true,
+      "optional": false
+    },
+    {
+      "id": "guidance-wrong-how",
+      "prompt": "If it did not match, what did it get wrong?",
+      "kind": "text",
+      "why": "Goes to whoever reviews the corpus. This is how a bad scenario gets found before it reaches the next person.",
+      "optional": true
+    },
+    {
+      "id": "said-aloud",
+      "prompt": "Did you say the suggested line out loud? If so, what happened next?",
+      "kind": "text",
+      "why": "Saying a line to an officer is the highest-risk thing this product asks of anyone. Whether it helped or made things worse is the one question no amount of review answers.",
+      "optional": true
+    }
+  ]
+}
