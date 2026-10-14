@@ -1,0 +1,37 @@
+---
+import Base from "../layouts/Base.astro";
+import { SITE, contactConfigured } from "../config";
+---
+<Base title="Privacy" description="What the waitlist form collects, who processes it, and how to ask for deletion.">
+  <h1>Privacy</h1>
+  <p class="lede">This site is small on purpose. It has no accounts, no analytics, and no tracking of its own.</p>
+
+  <h2>What this website does</h2>
+  <p>
+    It serves pages and fonts from its own host. It does not set cookies of its own, does not run analytics, and does not load scripts or fonts from other companies. The demo runs entirely in your browser from pre-recorded data, and nothing you do in it is sent anywhere.
+  </p>
+
+  <h2>What the waitlist form collects</h2>
+  <ul>
+    <li>Your email address (required).</li>
+    <li>Your role: individual, lawyer, NGO, government, investor, or other.</li>
+    <li>An optional note, only if you choose to write one.</li>
+  </ul>
+  <p>We use it only to contact you about {SITE.name}. We do not sell it or share it with anyone else.</p>
+
+  <h2>Who processes it</h2>
+  <p>
+    The form is provided by Tally (tally.so) and appears on the Home page as an embedded form. Tally receives and stores what you enter, and its own privacy terms apply to how it handles that data, including anything it sets in your browser while the form is loaded. Please read those terms if that matters to you.
+  </p>
+  <p>
+    We treat this information as personal data under India’s Digital Personal Data Protection Act, 2023.
+  </p>
+
+  <h2>Asking for deletion</h2>
+  <p>
+    You can ask us to delete your waitlist entry, or to show you what we hold, at any time.
+    {contactConfigured
+      ? <> Email <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a> from the address you signed up with.</>
+      : <> A contact address will be published on this page before the waitlist opens.</>}
+  </p>
+</Base>

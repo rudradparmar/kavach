@@ -1,0 +1,292 @@
+{
+  "id": "escalating-traffic-stop",
+  "frames": [
+    {
+      "speaker": "user",
+      "text": "They stopped me at the checkpoint, the constable is walking over now.",
+      "scenarioTitle": "Situation not confidently identified",
+      "fallback": true,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask for the officer's name and buckle number.",
+          "safest": true
+        },
+        {
+          "label": "Comply with lawful instructions and keep your hands visible.",
+          "safest": false
+        },
+        {
+          "label": "Keep the session recording and let it upload.",
+          "safest": false
+        },
+        {
+          "label": "Send the trusted-contact alert.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The officer's name and buckle number, the location, and the time.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": []
+    },
+    {
+      "speaker": "officer",
+      "text": "Licence dikhao. Papers nikalo.",
+      "scenarioTitle": "Traffic stop — documents not carried",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Offer the digital copy from DigiLocker or mParivahan.",
+          "safest": true
+        },
+        {
+          "label": "State clearly that a licence exists and only the physical copy is absent.",
+          "safest": false
+        },
+        {
+          "label": "Ask for the production period the law allows.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether the officer accepted or refused the digital copy, and the reason given.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "Sir I have a valid licence but I forgot my licence at home, I have the digital copy.",
+      "scenarioTitle": "Traffic stop — documents not carried",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Offer the digital copy from DigiLocker or mParivahan.",
+          "safest": true
+        },
+        {
+          "label": "State clearly that a licence exists and only the physical copy is absent.",
+          "safest": false
+        },
+        {
+          "label": "Ask for the production period the law allows.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether the officer accepted or refused the digital copy, and the reason given.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "officer",
+      "text": "Digital nahi chalega. Chaabi do.",
+      "scenarioTitle": "Officer takes the keys or blocks the vehicle",
+      "fallback": false,
+      "newFlags": [
+        {
+          "severity": "unlawful",
+          "statement": "[Statement shown here once an advocate has reviewed it]"
+        }
+      ],
+      "options": [
+        {
+          "label": "Calmly ask which section the detention is under.",
+          "safest": true
+        },
+        {
+          "label": "Ask for the detention memo or challan in writing.",
+          "safest": false
+        },
+        {
+          "label": "Send the trusted-contact alert now.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The moment the keys were taken, and whether any section or paper was cited.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "He has taken my keys out of the ignition.",
+      "scenarioTitle": "Officer takes the keys or blocks the vehicle",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Calmly ask which section the detention is under.",
+          "safest": true
+        },
+        {
+          "label": "Ask for the detention memo or challan in writing.",
+          "safest": false
+        },
+        {
+          "label": "Send the trusted-contact alert now.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The moment the keys were taken, and whether any section or paper was cited.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "officer",
+      "text": "Ab 2000 rupees do aur nikal jao. Challan nahi banega, cash de do.",
+      "scenarioTitle": "Officer demands cash or an inflated amount",
+      "fallback": false,
+      "newFlags": [
+        {
+          "severity": "irregular",
+          "statement": "[Statement shown here once an advocate has reviewed it]"
+        }
+      ],
+      "options": [
+        {
+          "label": "Ask for a receipt or challan for whatever amount is paid.",
+          "safest": true
+        },
+        {
+          "label": "Offer to pay by the official digital route.",
+          "safest": false
+        },
+        {
+          "label": "Pay, keep the recording, and complain afterwards through the proper authority.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The exact amount asked for, in the officer's own words, and whether a receipt was offered.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "He is asking for cash and says there will be no challan.",
+      "scenarioTitle": "Officer demands cash or an inflated amount",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask for a receipt or challan for whatever amount is paid.",
+          "safest": true
+        },
+        {
+          "label": "Offer to pay by the official digital route.",
+          "safest": false
+        },
+        {
+          "label": "Pay, keep the recording, and complain afterwards through the proper authority.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The exact amount asked for, in the officer's own words, and whether a receipt was offered.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "officer",
+      "text": "Nahi dena hai to thane chalo. Station chalo abhi.",
+      "scenarioTitle": "\"Come to the station\" — detention or arrest?",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask once, calmly: am I under arrest, or free to go?",
+          "safest": true
+        },
+        {
+          "label": "If it is a notice rather than an arrest, ask for it in writing.",
+          "safest": false
+        },
+        {
+          "label": "Tell the officer you are informing a family member, and do it.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The exact answer to \"am I under arrest\", and the time it was asked.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "He says come to the station. He has not said I am under arrest.",
+      "scenarioTitle": "\"Come to the station\" — detention or arrest?",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask once, calmly: am I under arrest, or free to go?",
+          "safest": true
+        },
+        {
+          "label": "If it is a notice rather than an arrest, ask for it in writing.",
+          "safest": false
+        },
+        {
+          "label": "Tell the officer you are informing a family member, and do it.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The exact answer to \"am I under arrest\", and the time it was asked.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    }
+  ]
+}

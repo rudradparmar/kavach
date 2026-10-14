@@ -1,0 +1,17 @@
+---
+import { SITE, waitlistConfigured } from "../config";
+---
+{waitlistConfigured ? (
+  <iframe
+    class="waitlist"
+    src={SITE.waitlistUrl}
+    title="Waitlist form"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+  ></iframe>
+) : (
+  <div class="status" role="note">
+    The waitlist form is not connected yet. Please check back soon.
+  </div>
+)}
+<p>The form asks for your email, your role, and an optional note. Nothing else. See <a href="/privacy">Privacy</a>.</p>

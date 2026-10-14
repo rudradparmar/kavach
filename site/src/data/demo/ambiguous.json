@@ -1,0 +1,67 @@
+{
+  "id": "ambiguous",
+  "frames": [
+    {
+      "speaker": "user",
+      "text": "Something is happening, there are people here, I am not sure what is going on.",
+      "scenarioTitle": "Situation not confidently identified",
+      "fallback": true,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask for the officer's name and buckle number.",
+          "safest": true
+        },
+        {
+          "label": "Comply with lawful instructions and keep your hands visible.",
+          "safest": false
+        },
+        {
+          "label": "Keep the session recording and let it upload.",
+          "safest": false
+        },
+        {
+          "label": "Send the trusted-contact alert.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The officer's name and buckle number, the location, and the time.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": []
+    },
+    {
+      "speaker": "user",
+      "text": "Someone is talking to me but I cannot hear properly.",
+      "scenarioTitle": "Situation not confidently identified",
+      "fallback": true,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Ask for the officer's name and buckle number.",
+          "safest": true
+        },
+        {
+          "label": "Comply with lawful instructions and keep your hands visible.",
+          "safest": false
+        },
+        {
+          "label": "Keep the session recording and let it upload.",
+          "safest": false
+        },
+        {
+          "label": "Send the trusted-contact alert.",
+          "safest": false
+        }
+      ],
+      "documentNow": "The officer's name and buckle number, the location, and the time.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": []
+    }
+  ]
+}

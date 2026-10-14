@@ -1,0 +1,66 @@
+---
+import Base from "../layouts/Base.astro";
+import { SITE, contactConfigured } from "../config";
+import Waitlist from "../components/Waitlist.astro";
+
+const steps = [
+  "One tap starts it. There is no login and no menu in the way.",
+  "It follows the conversation, spoken or typed.",
+  "It works out what kind of stop this is, and updates as the situation changes.",
+  "It shows what the law says and the safest next step, in plain language.",
+  "Afterwards it helps build a record you can hand to a lawyer.",
+];
+const safety = [
+  {
+    h: "The AI never writes the law",
+    p: "The AI is only asked to choose a type of situation from a fixed list and to report facts it can quote from the conversation. Every statement about the law comes from a fixed library, not from the AI.",
+  },
+  {
+    h: "Calm comes first",
+    p: "The safest-ranked option is always a de-escalating one. A filter blocks wording that urges anyone to resist, run, or argue with an officer.",
+  },
+  {
+    h: "If unsure, it says less",
+    p: "When it is not confident about what is happening, it falls back to a short list of general, calm steps that name no law at all.",
+  },
+];
+---
+<Base title={SITE.name} description={SITE.tagline}>
+  <h1>Being stopped by police is stressful. Knowing your rights in that moment shouldn’t depend on luck.</h1>
+  <p class="lede">
+    {SITE.name} is being built to give calm, plain-language rights information and a clear safest next step, right when it is needed.
+  </p>
+
+  <div class="status" role="note">
+    <strong>Status.</strong> In development. The legal content is being prepared for review by a practising advocate and is not yet verified. The app is not available to the public.
+  </div>
+  <div class="cta">
+    <a class="btn" href="/demo">See a recorded demo</a>
+    <a class="btn secondary" href="#waitlist">Join the waitlist</a>
+  </div>
+
+  <h2>How it works</h2>
+  <ol class="steps">
+    {steps.map((s) => <li>{s}</li>)}
+  </ol>
+
+  <h2>How it stays safe</h2>
+  <ul class="cards">
+    {safety.map((c) => (
+      <li class="card"><h3>{c.h}</h3><p>{c.p}</p></li>
+    ))}
+  </ul>
+  <p>
+    These are design rules, and we are still testing that they hold. The legal text itself is the part that still needs an advocate’s review, which is why nothing here is for real use yet.
+  </p>
+
+  <h2 id="waitlist">Join the waitlist</h2>
+  <p>Tell us you are interested and we will write once, when there is something real to share.</p>
+  <Waitlist />
+  <p>
+    Advocates, NGOs and partners:
+    {contactConfigured
+      ? <a href={`mailto:${SITE.contactEmail}`}>get in touch</a>
+      : <span>a contact address will be published here shortly. Until then, please use the waitlist form and choose your role.</span>}.
+  </p>
+</Base>

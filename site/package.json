@@ -1,0 +1,26 @@
+{
+  "name": "kavach-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public information site and recorded demo. Static output only; never talks to the engine.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "astro dev",
+    "demo:build": "cd .. && tsx site/scripts/build-demo.ts",
+    "check-dist": "tsx scripts/check-dist.ts",
+    "build": "astro build",
+    "postbuild": "npm run check-dist",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.1.0",
+    "@fontsource/noto-sans-devanagari": "^5.1.0",
+    "astro": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

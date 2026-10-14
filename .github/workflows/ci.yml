@@ -39,6 +39,15 @@ jobs:
       - name: Engine tests
         run: cd kavach-engine && npm test
 
+      # Perception scorecard. Fails on any inverted fact or false misconduct
+      # flag -- the two errors the rule engine cannot catch, because it trusts
+      # what extraction hands it. Accuracy is printed, not gated: on the
+      # held-out set the keyword mock is a baseline, not a target.
+      - name: Perception eval (tuning set)
+        run: cd kavach-engine && npm run eval
+      - name: Perception eval (held-out set)
+        run: cd kavach-engine && npm run eval -- --cases eval/holdout.json
+
       - name: Evidence-service tests
         run: cd evidence-service && npm test
 
@@ -101,6 +110,34 @@ jobs:
       - name: Auth containment across all three services
         run: cd app && npm run auth
 
+      # The half of the product that happens after the encounter: officer
+      # details, escalation drafts, the debrief, and the parts of the packet
+      # that only exist when the client joins the engine to the evidence
+      # service. None of it is reachable from the guidance loop above.
+      - name: Afterwards (officer details, escalation, debrief, packet)
+        run: cd app && npm run afterwards
+
+      # Fitness for public use, not correctness. It exits non-zero while the
+      # corpus is unverified, which it is and must remain until an advocate
+      # signs -- so the blocker is expected and the step asserts that the
+      # *right* blocker is the only one.
+      - name: Preflight reports exactly the corpus gate
+        run: |
+          cd app
+          set +e
+          out=$(npm run preflight 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" = "0" ]; then
+            echo "::error::preflight passed while the corpus is unverified — the gate is broken"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "NOT READY FOR PUBLIC USE — 1 blocker"; then
+            echo "::error::preflight found a blocker other than the corpus gate"
+            exit 1
+          fi
+
   deployed-shape:
     name: path-mounted, the way it ships
     runs-on: ubuntu-latest
@@ -147,9 +184,37 @@ jobs:
       - name: Perception loop
         run: cd app && npm run pipeline -- http://localhost:8080/engine http://localhost:8080/stt
 
+      - name: Afterwards, behind one origin
+        run: cd app && npm run afterwards -- http://localhost:8080/engine
+
       - name: Auth containment behind one origin
         run: |
           cd app && npm run auth -- \
             http://localhost:8080/engine \
             http://localhost:8080/stt \
             http://localhost:8080/evidence
+
+  site:
+    name: public site, demo data and dist gate
+    runs-on: ubuntu-latest
+    # The demo JSON is generated from the real engine and committed so Vercel
+    # never needs the engine to build. This job fails if the committed copy has
+    # drifted, then builds the site; the postbuild step is check-dist, which
+    # fails if placeholder law reached the output.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: cd site && npm ci
+
+      - name: Regenerate demo data
+        run: cd site && npm run demo:build
+
+      - name: Committed demo data is current
+        run: git diff --exit-code site/src/data/demo
+
+      - name: Build (runs check-dist)
+        run: cd site && npm run build

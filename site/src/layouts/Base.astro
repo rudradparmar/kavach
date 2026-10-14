@@ -1,0 +1,51 @@
+---
+import "@fontsource/inter/latin-400.css";
+import "@fontsource/inter/latin-600.css";
+import "@fontsource/noto-sans-devanagari/devanagari-400.css";
+import "@fontsource/noto-sans-devanagari/devanagari-600.css";
+import "../styles/global.css";
+import { SITE } from "../config";
+
+interface Props { title: string; description: string; }
+const { title, description } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const links = [
+  { href: "/", label: "Home" },
+  { href: "/demo", label: "Demo" },
+  { href: "/about", label: "About" },
+  { href: "/privacy", label: "Privacy" },
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === SITE.name ? SITE.name : `${title} — ${SITE.name}`}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site">
+      <div class="wrap">
+        <a class="brand" href="/">{SITE.name}</a>
+        <nav aria-label="Main">
+          <ul>
+            {links.map((l) => (
+              <li><a href={l.href} aria-current={path === l.href ? "page" : undefined}>{l.label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <slot name="top" />
+    <main id="main" class="wrap"><slot /></main>
+    <footer class="site">
+      <div class="wrap">
+        <p>{SITE.footer}</p>
+        <p><a href="/privacy">Privacy</a> · <a href="/about">About &amp; status</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

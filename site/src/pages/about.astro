@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/Base.astro";
+import { SITE } from "../config";
+const road = [
+  { h: "Website", p: "This site and a recorded demo. Done first because it can be published without anyone relying on it during a stop." },
+  { h: "Advocate review", p: "A practising advocate reads and corrects the legal content. Nothing reaches a user before this." },
+  { h: "Closed field test", p: "A small, invited group tries it under supervision." },
+  { h: "Android app", p: "Only after the steps before it have been done." },
+];
+---
+<Base title="About" description={`Who is building ${SITE.name}, why, and what “not yet verified” means.`}>
+  <h1>About and status</h1>
+
+  <h2>Who is building it</h2>
+  <p>{SITE.name} is being built by Rudra, working alone. {SITE.name} is a working name and may change.</p>
+
+  <h2>Why</h2>
+  <p>
+    When someone is stopped by police, they are usually frightened, often alone, and rarely sure what is and is not allowed. Rights information exists, but not in a form anyone can use in that moment. The aim is to offer calm, plain-language information and a clear safe next step, and to leave behind a record that a lawyer can use afterwards.
+  </p>
+  <p>This is rights information, not legal advice, and it does not replace a lawyer.</p>
+
+  <h2>Roadmap</h2>
+  <ol class="steps">
+    {road.map((r) => <li><div><strong>{r.h}.</strong> {r.p}</div></li>)}
+  </ol>
+  <p>There are no dates on this list on purpose. The review step decides the pace.</p>
+
+  <h2>What “not yet verified” means</h2>
+  <p>
+    The law the app draws on is held in a fixed library of text. That library is currently <strong>placeholder content</strong>: it has been drafted, but no advocate has checked it against the actual legislation or signed it off. Until one has, it should not be relied on by anyone for anything.
+  </p>
+  <p>
+    That is why the demo on this site hides the legal wording and shows only how the engine behaves. When an advocate has reviewed the content, this page will say who, and when.
+  </p>
+</Base>

@@ -1,0 +1,156 @@
+---
+import Base from "../layouts/Base.astro";
+import { SITE } from "../config";
+import traffic from "../data/demo/escalating-traffic-stop.json";
+import trafficHi from "../data/demo/escalating-traffic-stop-hi.json";
+import protest from "../data/demo/protest-force.json";
+import ambiguous from "../data/demo/ambiguous.json";
+
+// Titles and blurbs are written here, not read from the fixtures: the fixtures'
+// own descriptions are developer notes.
+const demos = [
+  { data: traffic, title: "A traffic stop that escalates", blurb: "A routine document check that moves to a cash demand and a request to come to the station." },
+  { data: trafficHi, title: "The same stop, spoken in Hindi", blurb: "The same scripted encounter, with every line in Hindi." },
+  { data: protest, title: "A crowd and the use of force", blurb: "A sit-in, an order to clear the area, and then force being used." },
+  { data: ambiguous, title: "An unclear situation", blurb: "Not enough to go on. The engine says so rather than guessing." },
+];
+const payload = JSON.stringify(
+  demos.map((d) => ({ id: d.data.id, title: d.title, blurb: d.blurb, frames: d.data.frames })),
+).replace(/</g, "\\u003c");
+---
+<Base title="Demo" description="A recorded, step-by-step demo of the engine on scripted encounters, with the legal wording hidden.">
+  <div slot="top" class="demo-banner" role="note">{SITE.demoBanner}</div>
+
+  <h1>Recorded demo</h1>
+  <p class="lede">
+    Step through a scripted encounter and see how the engine responds turn by turn. Nothing here is live: the transcript is scripted, nothing is recognised from real speech, and nothing you do on this page is sent anywhere.
+  </p>
+  <p>
+    The legal wording is hidden on purpose. The content behind it is placeholder and not yet reviewed by an advocate, so this demo shows the mechanism and not the law.
+  </p>
+
+  <noscript><p>The demo needs JavaScript to step through turns.</p></noscript>
+
+  <div id="demo" hidden>
+    <div class="demo-pick">
+      <label for="pick"><strong>Choose a scripted encounter</strong></label>
+      <select id="pick"></select>
+      <p id="blurb" class="lede" style="margin:0"></p>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn secondary" id="prev" type="button">Previous</button>
+      <span class="count" id="count" aria-live="polite"></span>
+      <button class="btn" id="next" type="button">Next</button>
+    </div>
+
+    <section class="frame" aria-live="polite" aria-label="Current turn">
+      <p class="label" id="speakerLabel"></p>
+      <div class="turn"><p id="turnText"></p></div>
+
+      <p class="label">The engine classified this as</p>
+      <p class="scenario" id="scenario"></p>
+      <p id="fallbackNote" class="masked" hidden>
+        The engine is not confident here, so it offers only general calm steps that name no law.
+      </p>
+
+      <div id="flagsBox" hidden>
+        <p class="label">Conduct flags so far</p>
+        <div id="flags"></div>
+      </div>
+
+      <p class="label">Ranked options (safest first)</p>
+      <ul class="opts" id="opts"></ul>
+
+      <p class="label">Document now</p>
+      <p id="docNow"></p>
+
+      <p class="label">Quotable line</p>
+      <p class="masked" id="line"></p>
+
+      <div id="provBox" hidden>
+        <p class="label">Legal references</p>
+        <div id="provs"></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="application/json" id="demo-data" set:html={payload}></script>
+  <script is:inline>
+    (function () {
+      var data = JSON.parse(document.getElementById("demo-data").textContent);
+      var $ = function (id) { return document.getElementById(id); };
+      var SEV = {
+        unlawful: { word: "APPEARS UNLAWFUL", icon: "⛔" },
+        irregular: { word: "IRREGULAR", icon: "⚠" },
+        info: { word: "NOTE", icon: "ⓘ" }
+      };
+      var WHO = { officer: "Officer", user: "You", unknown: "Speaker unclear" };
+      var cur = 0, i = 0;
+
+      function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function lang(node, text) {
+        if (/[ऀ-ॿ]/.test(text)) node.setAttribute("lang", "hi");
+      }
+
+      var pick = $("pick");
+      data.forEach(function (d, n) {
+        var o = document.createElement("option");
+        o.value = String(n); o.textContent = d.title; pick.appendChild(o);
+      });
+
+      function render() {
+        var d = data[cur], f = d.frames[i];
+        $("blurb").textContent = d.blurb;
+        $("count").textContent = "Turn " + (i + 1) + " of " + d.frames.length;
+        $("prev").disabled = i === 0;
+        $("next").disabled = i === d.frames.length - 1;
+        $("speakerLabel").textContent = "Scripted transcript · " + (WHO[f.speaker] || "Speaker unclear") + " says";
+        var t = $("turnText"); t.textContent = f.text; t.removeAttribute("lang"); lang(t, f.text);
+        $("scenario").textContent = f.scenarioTitle || "Not identified";
+        $("fallbackNote").hidden = !f.fallback;
+
+        var flags = $("flags"); flags.textContent = "";
+        var n = 0;
+        for (var k = 0; k <= i; k++) {
+          d.frames[k].newFlags.forEach(function (fl) {
+            n++;
+            var s = SEV[fl.severity] || SEV.info;
+            var box = el("div", "flag " + fl.severity);
+            var w = el("strong", null, s.icon + " " + s.word + (k === i ? " · new this turn" : ""));
+            box.appendChild(w);
+            box.appendChild(el("span", null, fl.statement));
+            flags.appendChild(box);
+          });
+        }
+        $("flagsBox").hidden = n === 0;
+
+        var opts = $("opts"); opts.textContent = "";
+        f.options.forEach(function (o) {
+          var li = el("li", o.safest ? "safest" : "");
+          if (o.safest) li.appendChild(el("span", "tag", "Safest"));
+          li.appendChild(document.createTextNode(o.label));
+          opts.appendChild(li);
+        });
+
+        $("docNow").textContent = f.documentNow || "";
+        $("line").textContent = f.quotableLine ? f.quotableLine.en : "";
+
+        var provs = $("provs"); provs.textContent = "";
+        f.provisions.forEach(function (p) { provs.appendChild(el("p", "masked", p)); });
+        $("provBox").hidden = f.provisions.length === 0;
+      }
+
+      pick.addEventListener("change", function () { cur = Number(pick.value); i = 0; render(); });
+      $("prev").addEventListener("click", function () { if (i > 0) { i--; render(); } });
+      $("next").addEventListener("click", function () { if (i < data[cur].frames.length - 1) { i++; render(); } });
+      $("demo").hidden = false;
+      render();
+    })();
+  </script>
+</Base>

@@ -1,0 +1,165 @@
+{
+  "id": "protest-force",
+  "frames": [
+    {
+      "speaker": "user",
+      "text": "We are sitting quietly at the dharna, nobody is doing anything, it is peaceful.",
+      "scenarioTitle": "Peaceful protest — dispersal order",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Begin moving as directed while asking which order is in force.",
+          "safest": true
+        },
+        {
+          "label": "Record the order number, area and time if given.",
+          "safest": false
+        },
+        {
+          "label": "Move to a distance and continue documenting.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether an order was identified, and the exact words used to direct dispersal.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "officer",
+      "text": "Sab log hato. Clear the area right now.",
+      "scenarioTitle": "Peaceful protest — dispersal order",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Begin moving as directed while asking which order is in force.",
+          "safest": true
+        },
+        {
+          "label": "Record the order number, area and time if given.",
+          "safest": false
+        },
+        {
+          "label": "Move to a distance and continue documenting.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether an order was identified, and the exact words used to direct dispersal.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "I asked which order is in force and he did not answer.",
+      "scenarioTitle": "Traffic stop — documents not carried",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Offer the digital copy from DigiLocker or mParivahan.",
+          "safest": true
+        },
+        {
+          "label": "State clearly that a licence exists and only the physical copy is absent.",
+          "safest": false
+        },
+        {
+          "label": "Ask for the production period the law allows.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether the officer accepted or refused the digital copy, and the reason given.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "officer",
+      "text": "Bas hato, warna dekhte hain.",
+      "scenarioTitle": "Peaceful protest — dispersal order",
+      "fallback": false,
+      "newFlags": [],
+      "options": [
+        {
+          "label": "Begin moving as directed while asking which order is in force.",
+          "safest": true
+        },
+        {
+          "label": "Record the order number, area and time if given.",
+          "safest": false
+        },
+        {
+          "label": "Move to a distance and continue documenting.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Whether an order was identified, and the exact words used to direct dispersal.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    },
+    {
+      "speaker": "user",
+      "text": "They have started lathi charge, they are hitting people who are just sitting.",
+      "scenarioTitle": "Force used on peaceful protesters",
+      "fallback": false,
+      "newFlags": [
+        {
+          "severity": "unlawful",
+          "statement": "[Statement shown here once an advocate has reviewed it]"
+        }
+      ],
+      "options": [
+        {
+          "label": "Move out of the immediate area first.",
+          "safest": true
+        },
+        {
+          "label": "Continue recording from a distance.",
+          "safest": false
+        },
+        {
+          "label": "Record injuries and get medical attention documented.",
+          "safest": false
+        }
+      ],
+      "documentNow": "Faces, unit or vehicle numbers, the time, and injuries — before anyone is moved.",
+      "quotableLine": {
+        "en": "[Line shown here once an advocate has reviewed it]",
+        "hi": "[Line shown here once an advocate has reviewed it]"
+      },
+      "provisions": [
+        "§ — pending advocate review",
+        "§ — pending advocate review"
+      ]
+    }
+  ]
+}
